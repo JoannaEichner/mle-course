@@ -191,12 +191,12 @@ def check_data() -> Finding:
 
 def check_editor() -> Finding:
     if _run("code", "--version") is None:
-        return Finding(
-            "VS Code",
-            "warn",
-            "polecenie `code` niedostępne",
-            "Zainstaluj VS Code w Windows z rozszerzeniem WSL. Patrz lekcja 0.",
+        fix = (
+            "Zainstaluj VS Code w Windows z rozszerzeniem WSL. Patrz lekcja 00."
+            if is_wsl()
+            else "Zainstaluj VS Code i włącz polecenie `code` w terminalu."
         )
+        return Finding("VS Code", "warn", "polecenie `code` niedostępne", fix)
     return Finding("VS Code", "ok", "polecenie `code` działa")
 
 
