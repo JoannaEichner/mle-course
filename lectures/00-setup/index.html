@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>00 · Setup | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="00">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">00 · Setup</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>Na tej stronie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 00 · Część 1: inżynieria w Pythonie</p>
+    <h1>Setup</h1>
+    <p class="lede">Zanim napiszesz pierwszą linię kodu, potrzebujesz miejsca, w którym ten kod działa. Tę stronę przechodzisz ręcznie, krok po kroku. Na końcu uruchamiasz tutora i resztę robicie razem.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> 2-4 godziny, zależnie od łącza i szczęścia</li>
+      <li><b>Wynik:</b> działające środowisko, pobrane dane, pierwszy pull request</li>
+    </ul>
+
+    <p>Nie musisz rozumieć każdego polecenia, które tu wpisujesz. Zrozumienie przyjdzie w modułach 02 i 04. Masz za to wiedzieć, <strong>po czym poznać, że krok się udał</strong>. Każdy krok kończy się poleceniem sprawdzającym. Odhaczaj kroki na bieżąco, strona zapamięta, gdzie jesteś.</p>
+
+    <div class="tabs" data-group="os">
+      <div class="segmented" role="group" aria-label="System operacyjny">
+        <button type="button" data-tab="windows" aria-pressed="true">Windows + WSL2</button>
+        <button type="button" data-tab="linux" aria-pressed="false">Linux</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-group="os" data-tab="linux" hidden>
+      <div class="callout">
+        <span class="label">Linux</span>
+        <p>Pomiń część "Windows" i zacznij od kroku 4. Polecenia są pisane pod Ubuntu 24.04. Na innej dystrybucji zamień <code>apt</code> na swój menedżer pakietów. Sterownik NVIDIA instalujesz tak, jak zaleca Twoja dystrybucja.</p>
+      </div>
+    </div>
+
+    <section id="dlaczego">
+      <h2>Co i po co instalujesz</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Narzędzie</th><th>Do czego</th><th>Od kiedy potrzebne</th></tr></thead>
+          <tbody>
+            <tr><td>WSL2 z Ubuntu</td><td>Linux wewnątrz Windows. Prawie każdy serwer, na którym działa ML, to Linux</td><td>od razu</td></tr>
+            <tr><td>git i konto GitHub</td><td>Historia zmian i pull requesty</td><td>od razu</td></tr>
+            <tr><td>uv</td><td>Instaluje Pythona i biblioteki, zawsze w tych samych wersjach</td><td>od razu</td></tr>
+            <tr><td>VS Code</td><td>Edytor i notebooki</td><td>od razu</td></tr>
+            <tr><td>Claude Code</td><td>Tutor AI. Zalecany, nieobowiązkowy</td><td>od razu</td></tr>
+            <tr><td>Sterownik NVIDIA</td><td>Trening sieci na karcie graficznej</td><td>moduł 18</td></tr>
+            <tr><td>Docker</td><td>Kontenery</td><td>moduł 15</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="windows" class="tab-panel" data-group="os" data-tab="windows">
+      <h2>Windows: WSL2 i Ubuntu</h2>
+      <p>Potrzebujesz Windows 11 albo Windows 10 w wersji 2004 lub nowszej.</p>
+
+      <ol class="steps">
+        <li class="step" id="s-wsl">
+          <h3>Zainstaluj WSL2 z Ubuntu 24.04</h3>
+          <p>Otwórz PowerShell <strong>jako administrator</strong> (menu Start, wpisz "PowerShell", prawy przycisk, "Uruchom jako administrator").</p>
+<pre><code class="language-text">wsl --update
+wsl --install -d Ubuntu-24.04</code></pre>
+          <p>Uruchom komputer ponownie. Po restarcie otworzy się okno Ubuntu i poprosi o nazwę użytkownika i hasło. To nowe konto linuksowe, niezależne od konta Windows. Hasła nie widać podczas wpisywania i tak ma być.</p>
+          <p>Jeśli instalacja stoi na 0%, przerwij ją i użyj <code>wsl --install --web-download -d Ubuntu-24.04</code>.</p>
+          <p><strong>Sprawdzenie</strong>, w PowerShell:</p>
+<pre><code class="language-text">wsl -l -v</code></pre>
+          <p>W kolumnie <code>VERSION</code> przy Ubuntu-24.04 ma być <code>2</code>.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-memory">
+          <h3>Sprawdź, ile pamięci dostaje Linux</h3>
+          <p>WSL domyślnie przydziela Linuksowi połowę pamięci komputera. Na laptopie z 16 GB to 8 GB. Kurs na tym zadziała. Jeśli chcesz dać więcej, utwórz w Windows plik <code>%UserProfile%\.wslconfig</code>:</p>
+<pre><code class="language-ini">[wsl2]
+memory=12GB</code></pre>
+          <p>Po zmianie wykonaj w PowerShell <code>wsl --shutdown</code> i otwórz Ubuntu ponownie.</p>
+          <p><strong>Sprawdzenie</strong>, w Ubuntu:</p>
+<pre><code class="language-bash">free -h</code></pre>
+          <p>Kolumna <code>total</code> w wierszu <code>Mem</code> pokazuje pamięć widoczną dla Linuksa.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-nvidia">
+          <h3>Sterownik karty NVIDIA</h3>
+          <p>Zainstaluj w <strong>Windows</strong> aktualny sterownik NVIDIA ze strony producenta (Game Ready albo RTX). To jedyny sterownik, jakiego potrzebujesz. <strong>Wewnątrz Ubuntu nie instaluj żadnego sterownika NVIDIA</strong>: WSL udostępnia kartę sam, a linuksowy sterownik to zepsuje.</p>
+          <p>Karta przyda się dopiero w module 18, ale problemy ze sterownikiem lepiej znaleźć teraz. Biblioteki z tego modułu wymagają sterownika w wersji 580 lub nowszej.</p>
+          <p><strong>Sprawdzenie</strong>, w Ubuntu:</p>
+<pre><code class="language-bash">nvidia-smi</code></pre>
+          <p>Ma się pojawić tabela z nazwą Twojej karty i wersją sterownika.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+      </ol>
+    </section>
+
+    <section id="linux">
+      <h2>Ubuntu: podstawowe narzędzia</h2>
+      <p>Od tego miejsca wszystko wpisujesz w terminalu Ubuntu.</p>
+
+      <ol class="steps">
+        <li class="step" id="s-apt">
+          <h3>Zainstaluj git i curl</h3>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y git curl</code></pre>
+          <p><code>sudo</code> poprosi o hasło konta linuksowego.</p>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">git --version</code></pre>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-fork">
+          <h3>Załóż konto GitHub i zrób fork kursu</h3>
+          <p>Fork to Twoja własna kopia repozytorium na GitHubie. Na niej pracujesz i do niej wysyłasz zmiany.</p>
+          <ol>
+            <li>Załóż konto na <a href="https://github.com">github.com</a>, jeśli go nie masz.</li>
+            <li>Otwórz repozytorium kursu i kliknij <strong>Fork</strong>.</li>
+            <li>Zostaw zaznaczoną opcję kopiowania tylko gałęzi domyślnej. Gałąź z rozwiązaniami pobierzesz osobno, gdy będzie potrzebna.</li>
+          </ol>
+          <p><strong>Sprawdzenie:</strong> w przeglądarce widzisz repozytorium <code>TWOJ-LOGIN/mle-course</code>.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-clone">
+          <h3>Sklonuj fork do katalogu domowego Linuksa</h3>
+          <p>Wstaw swój login w miejsce <code>TWOJ-LOGIN</code>.</p>
+<pre><code class="language-bash">cd ~
+git clone https://github.com/TWOJ-LOGIN/mle-course.git
+cd mle-course</code></pre>
+          <div class="callout trap">
+            <span class="label">Pułapka</span>
+            <p>Repozytorium ma leżeć w systemie plików Linuksa, czyli pod <code>/home/...</code>. Nie klonuj go na dysk Windows (<code>/mnt/c/...</code>). Operacje na plikach są tam wielokrotnie wolniejsze.</p>
+          </div>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">pwd</code></pre>
+          <p>Ścieżka zaczyna się od <code>/home/</code>.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-uv">
+          <h3>Zainstaluj uv i środowisko kursu</h3>
+<pre><code class="language-bash">curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+          <p>Zamknij terminal i otwórz go ponownie, żeby polecenie <code>uv</code> było widoczne. Potem, w katalogu kursu:</p>
+<pre><code class="language-bash">cd ~/mle-course
+uv sync</code></pre>
+          <p><code>uv sync</code> pobiera Pythona 3.12 i wszystkie biblioteki w wersjach zapisanych w pliku <code>uv.lock</code>. Pierwszy raz trwa kilka minut.</p>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">uv run course doctor</code></pre>
+          <p>Zobaczysz listę kontroli. Na tym etapie część z nich będzie czerwona. To normalne: naprawisz je w następnej części.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+      </ol>
+    </section>
+
+    <section id="tutor">
+      <h2>Dalej z tutorem</h2>
+      <p>Zostało kilka rzeczy: konfiguracja gita, logowanie do GitHuba z terminala, VS Code, pobranie danych i pierwszy pull request. Możesz je zrobić z tutorem albo sam.</p>
+
+      <h3>Ścieżka z tutorem (zalecana)</h3>
+      <p>Tutor to agent AI uruchamiany w katalogu kursu. Ten kurs opisuje pracę z Claude Code, które wymaga płatnego planu (Pro wystarcza). Instrukcje tutora są w pliku <code>AGENTS.md</code>, więc zadziałają też w innych narzędziach, które ten plik czytają.</p>
+
+      <ol class="steps">
+        <li class="step" id="s-claude">
+          <h3>Zainstaluj Claude Code i uruchom <code>/setup</code></h3>
+<pre><code class="language-bash">curl -fsSL https://claude.ai/install.sh | bash</code></pre>
+          <p>Otwórz nowy terminal, wejdź do katalogu kursu i uruchom:</p>
+<pre><code class="language-bash">cd ~/mle-course
+claude</code></pre>
+          <p>Przy pierwszym uruchomieniu zalogujesz się przez przeglądarkę. W WSL może pojawić się kod do wklejenia. Potem wpisz:</p>
+<pre><code class="language-text">/setup</code></pre>
+          <p>Tutor uruchomi <code>course doctor</code>, przeprowadzi Cię przez każdy czerwony punkt i wytłumaczy, co robi każde polecenie. Skończycie na pierwszym pull requeście.</p>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">uv run course check 00</code></pre>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+      </ol>
+
+      <h3>Ścieżka bez tutora</h3>
+      <p>Te same kroki, wykonane ręcznie. Po każdym uruchom <code>uv run course doctor</code> i zobacz, co zmieniło kolor.</p>
+
+      <ol class="steps">
+        <li class="step" id="s-git">
+          <h3>Przedstaw się gitowi</h3>
+<pre><code class="language-bash">git config --global user.name "Imię Nazwisko"
+git config --global user.email "ty@example.com"</code></pre>
+          <p>Te dane trafią do każdego commita. Użyj adresu powiązanego z kontem GitHub.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-gh">
+          <h3>Zaloguj się do GitHuba z terminala</h3>
+          <p>Zainstaluj <code>gh</code> według <a href="https://github.com/cli/cli/blob/trunk/docs/install_linux.md">oficjalnej instrukcji dla Debiana i Ubuntu</a>. Wersja z domyślnego repozytorium Ubuntu jest przestarzała. Potem:</p>
+<pre><code class="language-bash">gh auth login</code></pre>
+          <p>Wybierz GitHub.com, HTTPS, zgodę na uwierzytelnianie gita i logowanie przez przeglądarkę.</p>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">gh auth status</code></pre>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-upstream">
+          <h3>Dodaj repozytorium kursu jako <code>upstream</code></h3>
+          <p><code>origin</code> to Twój fork. <code>upstream</code> to oryginał, z którego pobierasz aktualizacje kursu i gałąź z rozwiązaniami.</p>
+<pre><code class="language-bash">git remote add upstream https://github.com/UPSTREAM-OWNER/mle-course.git
+gh repo set-default TWOJ-LOGIN/mle-course</code></pre>
+          <p>Drugie polecenie sprawia, że pull requesty domyślnie trafiają do Twojego forka, a nie do repozytorium kursu.</p>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">git remote -v</code></pre>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-code">
+          <h3>VS Code</h3>
+          <p>Zainstaluj VS Code <strong>w Windows</strong>, nie w Ubuntu. Dodaj rozszerzenie <strong>WSL</strong> (<code>ms-vscode-remote.remote-wsl</code>). Potem w terminalu Ubuntu:</p>
+<pre><code class="language-bash">cd ~/mle-course
+code .</code></pre>
+          <p>Otworzy się okno VS Code połączone z Linuksem. W tym oknie zainstaluj rozszerzenia <strong>Python</strong> i <strong>Jupyter</strong>. Muszą być zainstalowane "w WSL", VS Code zaproponuje to sam.</p>
+          <p><strong>Sprawdzenie:</strong> w lewym dolnym rogu okna jest napis <code>WSL: Ubuntu-24.04</code>.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-data">
+          <h3>Pobierz dane</h3>
+<pre><code class="language-bash">uv run course data
+uv run course doctor</code></pre>
+          <p>Pierwsze polecenie pobiera około 110 MB i sprawdza sumy kontrolne. Drugie powinno już nie mieć żadnego czerwonego punktu. Na końcu wypisuje <strong>profil danych</strong> dobrany do pamięci Twojego komputera.</p>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+
+        <li class="step" id="s-pr">
+          <h3>Pierwszy pull request</h3>
+          <p>Załóż dziennik nauki. Będziesz w nim zapisywać, co zrobiłeś i co było trudne.</p>
+<pre><code class="language-bash">git switch -c setup/journal
+mkdir -p notes
+code notes/journal.md</code></pre>
+          <p>Napisz kilka zdań: po co robisz ten kurs i co chcesz umieć za trzy miesiące. Zapisz plik. Potem:</p>
+<pre><code class="language-bash">git add notes/journal.md
+git commit -m "Add learning journal"
+git push -u origin setup/journal
+gh pr create --fill</code></pre>
+          <p>Otwórz link, który wypisze ostatnie polecenie. Obejrzyj zakładkę "Files changed", a potem kliknij <strong>Merge pull request</strong>. Wróć na gałąź główną:</p>
+<pre><code class="language-bash">git switch main
+git pull</code></pre>
+          <p><strong>Sprawdzenie:</strong></p>
+<pre><code class="language-bash">uv run course check 00</code></pre>
+          <label class="tick"><input type="checkbox"> Zrobione</label>
+        </li>
+      </ol>
+    </section>
+
+    <section id="polecenia">
+      <h2>Polecenia, których będziesz używać codziennie</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Polecenie</th><th>Co robi</th></tr></thead>
+          <tbody>
+            <tr><td><code>uv run course doctor</code></td><td>Sprawdza środowisko</td></tr>
+            <tr><td><code>uv run course check 07</code></td><td>Sprawdza zadania modułu. <code>check 07.2</code> sprawdza jedno</td></tr>
+            <tr><td><code>uv run course profile small</code></td><td>Zmienia profil danych</td></tr>
+            <tr><td><code>uv run course catchup 08</code></td><td>Wpisuje kod referencyjny modułów przed podanym</td></tr>
+            <tr><td><code>uv run jupyter lab</code></td><td>Otwiera notebooki w przeglądarce</td></tr>
+            <tr><td><code>claude</code></td><td>Uruchamia tutora</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Jak pracować z tutorem</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Komenda</th><th>Kiedy</th></tr></thead>
+          <tbody>
+            <tr><td><code>/hint 07.3</code></td><td>Utknąłeś w zadaniu. Dostajesz jedną podpowiedź, nie rozwiązanie</td></tr>
+            <tr><td><code>/check 07.3</code></td><td>Chcesz zrozumieć, dlaczego sprawdzenie nie przechodzi</td></tr>
+            <tr><td><code>/explain rolling</code></td><td>Nie rozumiesz pojęcia z wykładu</td></tr>
+            <tr><td><code>/quiz 07</code></td><td>Chcesz sprawdzić, czy moduł został w głowie</td></tr>
+            <tr><td><code>/review</code></td><td>Punkt kontrolny: review Twojego pull requesta</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Możesz też po prostu pisać po polsku. Tutor nie napisze za Ciebie rozwiązania zadania, nawet jeśli poprosisz. Pomoże Ci do niego dojść.</p>
+    </section>
+
+    <div class="next">
+      <h2>Gotowe?</h2>
+      <p><code>uv run course check 00</code> pokazuje trzy zaliczone punkty. Możesz zaczynać moduł 01.</p>
+      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

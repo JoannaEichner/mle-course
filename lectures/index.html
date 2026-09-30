@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="assets/course.css">
+</head>
+<body data-module="index">
+
+<header class="topbar">
+  <a class="brand" href="index.html">ML Engineering from Scratch</a>
+  <span class="spacer"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+
+<div class="page narrow">
+  <main class="lecture">
+    <div class="hero">
+      <p class="kicker">Kurs otwarty · około 160 godzin</p>
+      <h1>ML Engineering from Scratch</h1>
+      <p class="lede">Od podstaw Pythona do pracy inżyniera ML. Jeden projekt przez cały kurs: prognoza dziennej sprzedaży świeżych produktów w 898 sklepach, od surowego pliku do pipeline'u z testami, CI i obrazem Dockera.</p>
+    </div>
+
+    <ul class="meta">
+      <li><b>Na wejściu:</b> zmienne, pętle, funkcje, listy, słowniki</li>
+      <li><b>Sprzęt:</b> Windows z WSL2 albo Linux, karta NVIDIA do modułu 18</li>
+      <li><b>Dane:</b> FreshRetailNet-50K, licencja CC BY 4.0</li>
+    </ul>
+
+    <h2>Jak to działa</h2>
+    <p>Każdy moduł to wykład na tej stronie i lab w repozytorium. Wykład czytasz w przeglądarce, z quizami po drodze. Lab robisz u siebie: piszesz kod, a polecenie <code>uv run course check</code> mówi, czy działa.</p>
+    <p>Moduły budują na sobie. Zbiór, który oczyścisz w module 07, trenuje modele w modułach 08-13. Metryki z modułu 05 oceniają każdy model do końca kursu. Pakiet, który zakładasz w module 04, w module 16 trafia do obrazu Dockera.</p>
+    <p>W repozytorium czeka tutor AI. Tłumaczy, zadaje pytania naprowadzające i robi review Twoich pull requestów. Rozwiązań nie podaje. Kurs da się przejść także bez niego.</p>
+
+    <div class="part">
+      <h2>Część 1 · Inżynieria w Pythonie</h2>
+      <p>36 godzin. Piszesz kod, który ktoś inny da radę przeczytać, przetestować i uruchomić.</p>
+      <ul class="modules">
+        <li><a class="module" data-module="00" href="00-setup/index.html"><span class="no">00</span><span class="name">Setup</span><span class="what">WSL2, git, uv, VS Code, pierwszy pull request, praca z tutorem</span><span class="side">4 h</span></a></li>
+        <li><a class="module" data-module="01" href="01-python-data/index.html"><span class="no">01</span><span class="name">Struktury danych i przepływ</span><span class="what">Mutowalność, comprehensions, generatory, pliki, wyjątki. Fragment pilotażowy</span><span class="side">8 h</span></a></li>
+        <li><div class="module soon"><span class="no">02</span><span class="name">Funkcje i style kodu</span><span class="what">Domknięcia, dekoratory, type hints, mypy, ruff</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">03</span><span class="name">Klasy</span><span class="what">dataclass, ABC, Protocol, StrEnum, match</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">04</span><span class="name">Testy i pakiet</span><span class="what">pytest, mocki, układ src, uv i Poetry. Punkt kontrolny 1</span><span class="side">8 h</span></div></li>
+      </ul>
+    </div>
+
+    <div class="part">
+      <h2>Część 2 · Dane i ML</h2>
+      <p>71 godzin. Od surowego pliku do dostrojonego modelu, którego wynik umiesz obronić.</p>
+      <ul class="modules">
+        <li><div class="module soon"><span class="no">05</span><span class="name">NumPy</span><span class="what">Broadcasting, maski, NaN, pułapki floatów, metryki</span><span class="side">6 h</span></div></li>
+        <li><div class="module soon"><span class="no">06</span><span class="name">pandas I: czyszczenie</span><span class="what">Typy, braki, duplikaty, łańcuchy metod</span><span class="side">7 h</span></div></li>
+        <li><a class="module" data-module="07" href="07-pandas-panel/index.html"><span class="no">07</span><span class="name">pandas II: panel i relacje</span><span class="what">merge, groupby, shift, rolling, kolumny zagnieżdżone, kontrakt danych</span><span class="side">9 h</span></a></li>
+        <li><div class="module soon"><span class="no">08</span><span class="name">Podstawy ML</span><span class="what">Funkcja straty, gradient descent, podział po czasie, leakage, baseline</span><span class="side">9 h</span></div></li>
+        <li><div class="module soon"><span class="no">09</span><span class="name">Feature engineering</span><span class="what">Lagi, kalendarz, kodowanie kategorii, popyt ocenzurowany</span><span class="side">9 h</span></div></li>
+        <li><div class="module soon"><span class="no">10</span><span class="name">Drzewa i boosting</span><span class="what">Random forest, LightGBM, SHAP, prognoza rekurencyjna</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">11</span><span class="name">Walidacja i tuning</span><span class="what">Rolling origin, Optuna, MLflow. Punkt kontrolny 2</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">12</span><span class="name">Klasyfikacja</span><span class="what">Regresja logistyczna, precision i recall, niezbalansowane klasy</span><span class="side">7 h</span></div></li>
+        <li><div class="module soon"><span class="no">13</span><span class="name">Bez nadzoru, sieci, mapa ML</span><span class="what">k-means, PCA, MLP w PyTorch, przegląd reszty ML</span><span class="side">8 h</span></div></li>
+      </ul>
+    </div>
+
+    <div class="part">
+      <h2>Część 3 · Produkcja</h2>
+      <p>53 godziny. Model przestaje być notebookiem i zaczyna być oprogramowaniem.</p>
+      <ul class="modules">
+        <li><div class="module soon"><span class="no">14</span><span class="name">Od notebooka do pipeline'u</span><span class="what">Konfiguracja w pydantic, CLI, logowanie, zapis modeli</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">15</span><span class="name">Dane w chmurze i SQL</span><span class="what">S3 przez MinIO i moto, DuckDB nad parquet</span><span class="side">10 h</span></div></li>
+        <li><div class="module soon"><span class="no">16</span><span class="name">Docker i CI</span><span class="what">Dockerfile, GitHub Actions, code review. Punkt kontrolny 3</span><span class="side">6 h</span></div></li>
+        <li><div class="module soon"><span class="no">17</span><span class="name">Cudzy kod</span><span class="what">Tickety w gotowym codebase: bugi, nowa cecha, śledztwo</span><span class="side">8 h</span></div></li>
+        <li><div class="module soon"><span class="no">18</span><span class="name">Neuronowa prognoza na GPU</span><span class="what">Pętla treningowa w PyTorch, GRU, Lightning</span><span class="side">11 h</span></div></li>
+        <li><div class="module soon"><span class="no">19</span><span class="name">Capstone</span><span class="what">Pipeline od danych do raportu. Punkt kontrolny 4</span><span class="side">10 h</span></div></li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="assets/course.js"></script>
+</body>
+</html>

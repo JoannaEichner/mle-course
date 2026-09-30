@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/src/freshcast/**)",
+      "Edit(/labs/**)",
+      "Edit(/tests/**)",
+      "Edit(/shelfwise/**)",
+      "Edit(/notes/**)",
+      "Bash(git show *solutions*)",
+      "Bash(git checkout *solutions*)",
+      "Bash(git switch *solutions*)",
+      "Bash(git diff *solutions*)",
+      "Bash(git log *solutions*)",
+      "Bash(git restore *solutions*)",
+      "Bash(uv run course catchup*)"
+    ]
+  }
+}

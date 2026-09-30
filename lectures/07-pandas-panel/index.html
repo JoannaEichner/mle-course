@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>07 · pandas II: panel i relacje | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="07">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">07 · pandas II: panel i relacje</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 07 · Część 2: dane i ML</p>
+    <h1>pandas II: panel i relacje</h1>
+    <p class="lede">Raport sprzedaży pokazał rekordowy miesiąc. Nikt nie zrobił nic inaczej niż zwykle. Trzy produkty wpisano do słownika dwa razy i jedno złączenie po cichu podwoiło ich sprzedaż. Ten wykład jest o tym, jak pisać kod, w którym taki błąd kończy się wyjątkiem, a nie premią.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduł 05 (NumPy) i 06 (pandas I)</li>
+      <li><b>Potem:</b> <a href="../../labs/07-pandas-panel/README.md">lab 07</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Do tej pory pracowałeś na jednej tabeli, w której każdy wiersz żył osobno. Dane do prognozowania wyglądają inaczej. To wiele szeregów czasowych w jednej tabeli, opisanych przez kilka tabel pobocznych. Prawie każda operacja ma tu dwie wersje: poprawną i taką, która działa bez błędu i daje zły wynik.</p>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>wczytać z dużego pliku tylko to, czego potrzebujesz,</li>
+      <li>zapisać założenia o danych jako reguły, które wywracają program,</li>
+      <li>łączyć tabele tak, żeby nie zgubić ani nie pomnożyć wierszy,</li>
+      <li>liczyć lagi i średnie kroczące wewnątrz serii i tylko z przeszłości,</li>
+      <li>zamienić kolumnę tablic na jedną tablicę NumPy i liczyć na niej bez pętli.</li>
+    </ul>
+
+    <section id="panel">
+      <h2>Panel: wiele szeregów w jednej tabeli</h2>
+
+      <p>Zbiór tego kursu, FreshRetailNet-50K, to sprzedaż świeżych produktów w 898 sklepach przez 90 dni. Jeden wiersz to jedna para sklep × produkt w jednym dniu.</p>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>store_id</th><th>product_id</th><th>dt</th><th>sale_amount</th><th>discount</th></tr></thead>
+          <tbody>
+            <tr><td>70</td><td>4</td><td>2024-03-28</td><td>0.0</td><td>0.882</td></tr>
+            <tr><td>70</td><td>4</td><td>2024-03-29</td><td>0.3</td><td>0.882</td></tr>
+            <tr><td>70</td><td>4</td><td>…</td><td>…</td><td>…</td></tr>
+            <tr><td>70</td><td>92</td><td>2024-03-28</td><td>0.0</td><td>1.000</td></tr>
+            <tr><td>70</td><td>92</td><td>2024-03-29</td><td>0.2</td><td>1.000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Taki układ nazywa się <strong>panel</strong> (dane panelowe) w formacie długim. Trzy pojęcia będą wracać przez cały kurs:</p>
+      <ul>
+        <li><strong>Seria</strong> to jeden szereg czasowy. Tutaj: jeden produkt w jednym sklepie.</li>
+        <li><strong>Klucz serii</strong> to kolumny, które ją identyfikują: <code>store_id</code> i <code>product_id</code>.</li>
+        <li><strong>Klucz wiersza</strong> to klucz serii plus data. Powinien być unikalny.</li>
+      </ul>
+
+      <p>Panel może być dobry albo zły na trzy niezależne sposoby:</p>
+      <ul>
+        <li><strong>Unikalny:</strong> żaden klucz wiersza się nie powtarza.</li>
+        <li><strong>Kompletny:</strong> każda seria ma wiersz na każdy dzień. Bez luk.</li>
+        <li><strong>Posortowany:</strong> wiersze idą seria po serii, a w serii dzień po dniu.</li>
+      </ul>
+
+      <p>Dwie pierwsze cechy to własności danych. Trzecia to własność ramki, którą akurat trzymasz w ręku, i potrafi zniknąć po każdym <code>merge</code> albo <code>concat</code>. Wszystkie trzy będziesz sprawdzać kodem.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Sprawdziłeś, że panel nie ma duplikatów klucza wiersza i że każda z 2 648 serii ma dokładnie 90 wierszy w 90-dniowym zakresie dat. Czego jeszcze nie wiesz?</div>
+        <ul class="quiz-options">
+          <li>Czy któraś seria ma lukę w datach.<span class="why">To już wiesz. 90 różnych dni w zakresie 90 dni nie zostawia miejsca na lukę.</span></li>
+          <li data-correct>Czy wiersze są ułożone po serii i dacie.<span class="why">Tak. Unikalność i kompletność nic nie mówią o kolejności. Plik FreshRetailNet jest kompletny i nieposortowany.</span></li>
+          <li>Czy w panelu jest dokładnie 238 320 wierszy.<span class="why">To wynika z rachunku: 2 648 × 90.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="czytaj-mniej">
+      <h2>Czytaj mniej, niż jest w pliku</h2>
+
+      <p>Plik z danymi ma 106 MB. Po <code>pd.read_parquet(path)</code> proces potrzebuje 7,5 GB pamięci. Rozmiar na dysku nic nie mówi o rozmiarze w pamięci, bo Parquet jest skompresowany, a pandas trzyma dane rozpakowane.</p>
+
+      <p>Winne są dwie kolumny. Każda ich komórka to tablica 24 liczb, po jednej na godzinę.</p>
+
+      <figure class="widget" id="memory-chart">
+        <p class="widget-title">Pamięć na jeden wiersz</p>
+        <p class="widget-sub">Bajty w pandas, zmierzone na FreshRetailNet-50K. Cały plik ma 4,5 mln wierszy.</p>
+        <div class="chart-host"></div>
+        <figcaption>Dwie kolumny godzinowe zajmują ponad 80% pamięci. Do większości zadań nie są potrzebne.</figcaption>
+      </figure>
+
+      <p>Parquet jest formatem <strong>kolumnowym</strong>: każda kolumna leży w pliku osobno. Dzięki temu da się przeczytać trzy kolumny z dwudziestu i nie dotknąć reszty. Da się też odrzucać wiersze już podczas czytania.</p>
+
+<pre><code class="language-python">df = pd.read_parquet(
+    path,
+    columns=["store_id", "product_id", "dt", "sale_amount"],
+    filters=[("city_id", "in", [3])],
+)</code></pre>
+
+      <p><code>columns</code> wybiera kolumny. <code>filters</code> to lista warunków w postaci <code>(kolumna, operator, wartość)</code>. Kolumna z filtra nie musi być wśród wczytywanych.</p>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Wybieraj kolumny i wiersze przy czytaniu, a nie po nim. Pamięć ma zależeć od rozmiaru wyniku, nie od rozmiaru pliku.</p>
+      </div>
+
+      <h3>Typy</h3>
+
+      <p>Drugie źródło oszczędności to typy. pandas czyta liczby całkowite jako <code>int64</code>, czyli 8 bajtów na wartość. Identyfikator miasta przyjmuje wartości od 0 do 17 i mieści się w jednym bajcie.</p>
+
+<pre><code class="language-python">df["city_id"] = pd.to_numeric(df["city_id"], downcast="integer")   # int64 -> int8
+df["dt"] = pd.to_datetime(df["dt"], format="%Y-%m-%d")             # tekst -> datetime64</code></pre>
+
+      <p>Zmniejszenie typu całkowitego jest bezpieczne: wartości zostają te same. Z liczbami zmiennoprzecinkowymi jest inaczej. <code>float32</code> ma około 7 cyfr znaczących, więc sumy na milionach wierszy zaczynają odbiegać od prawdy. W tym kursie floatów nie zmniejszamy.</p>
+
+      <p>Zamiana tekstu na datę daje mniej pamięci, ale przede wszystkim daje arytmetykę: odejmowanie dat, dzień tygodnia przez <code>.dt.dayofweek</code>, poprawne sortowanie.</p>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Potrzebujesz sprzedaży jednego miasta. Który wariant zużyje najmniej pamięci w szczycie?</div>
+        <ul class="quiz-options">
+          <li><code>df = pd.read_parquet(path)</code>, potem <code>df[df["city_id"] == 3]</code><span class="why">Najpierw ląduje w pamięci cały plik, razem z kolumnami godzinowymi. Filtr działa już po fakcie.</span></li>
+          <li><code>pd.read_parquet(path, columns=cols)</code>, potem filtr w pandas<span class="why">Lepiej, bo omijasz ciężkie kolumny. Wciąż jednak wczytujesz wszystkie miasta.</span></li>
+          <li data-correct><code>pd.read_parquet(path, columns=cols, filters=[("city_id", "in", [3])])</code><span class="why">Tak. Oba ograniczenia działają podczas czytania, więc do pamięci trafia tylko wynik.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q3" data-type="multi">
+        <div class="quiz-q">Które zmiany typu nie zmieniają wartości w kolumnie? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct><code>city_id</code> z wartościami 0-17: <code>int64</code> na <code>int8</code><span class="why"><code>int8</code> mieści liczby od -128 do 127.</span></li>
+          <li data-correct><code>store_id</code> z wartościami 0-897: <code>int64</code> na <code>int16</code><span class="why"><code>int16</code> mieści liczby do 32 767.</span></li>
+          <li><code>sale_amount</code>: <code>float64</code> na <code>float32</code><span class="why">Większość ułamków dziesiętnych zmienia wartość przy zaokrągleniu do 7 cyfr. Pojedynczo to niewidoczne, w sumach się kumuluje.</span></li>
+          <li data-correct><code>dt</code>: tekst <code>"2024-03-28"</code> na <code>datetime64</code><span class="why">Ta sama data w innej reprezentacji.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="fail-fast">
+      <h2>Reguły zamiast nadziei</h2>
+
+      <p>Każdy kod, który liczy coś na danych, robi założenia. "Jedna seria ma jeden wiersz na dzień." "Sprzedaż nie jest ujemna." Dopóki założenie siedzi tylko w Twojej głowie, dane mogą je złamać i nikt się nie dowie. Program policzy wynik. Wynik będzie zły.</p>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Cicha zła prognoza jest gorsza niż błąd. Założenie o danych zapisujesz jako kod, który rzuca wyjątek.</p>
+      </div>
+
+      <p>To podejście nazywa się <strong>fail fast</strong>. Reguła ma trzy cechy: sprawdza jedną rzecz, liczy, ile wierszy ją łamie, i podaje tę liczbę w komunikacie.</p>
+
+<pre><code class="language-python">duplicated = int(df.duplicated(["store_id", "product_id", "dt"]).sum())
+if duplicated:
+    raise ValueError(f"{duplicated} rows repeat a (series, day) pair.")</code></pre>
+
+      <p>Liczba w komunikacie ma znaczenie. "3 wiersze" i "40 000 wierszy" to dwa zupełnie różne problemy i chcesz wiedzieć, który masz, zanim otworzysz notebook.</p>
+
+      <h3>Czego nie robić</h3>
+
+      <p>Trzy popularne sposoby na uciszenie problemu. Każdy zamienia głośny błąd w cichy.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kod</th><th>Co ukrywa</th></tr></thead>
+          <tbody>
+            <tr><td><code>df.fillna(0)</code></td><td>"Nie wiem" staje się "zero". Brak ceny zamienia się w darmowy produkt.</td></tr>
+            <tr><td><code>pd.to_numeric(s, errors="coerce")</code></td><td>Każdą wartość, której nie da się odczytać, zamienia na NaN bez śladu.</td></tr>
+            <tr><td><code>df.drop_duplicates()</code></td><td>Usuwa objaw. Pytanie, skąd wzięły się duplikaty, zostaje bez odpowiedzi.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Żadna z tych funkcji nie jest zakazana. Zakazane jest użycie ich bez sprawdzenia, ile wierszy dotykają, i bez decyzji, co te wiersze znaczą.</p>
+
+      <h3>Wartość, która nie pasuje do skali</h3>
+
+      <p>W danych jest kolumna <code>discount</code>. Dokumentacja mówi: 1.0 to cena regularna, 0.9 to 10% taniej. W 16 tysiącach wierszy stoi tam 0.</p>
+
+      <p>Może to produkt rozdawany za darmo. Może znacznik "nie zapisano". Dane pasują do obu wyjaśnień i w labie zobaczysz dlaczego. Masz wtedy trzy uczciwe wyjścia i jedno nieuczciwe.</p>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">Nie wiesz, co znaczy <code>discount == 0</code>. Które rozwiązanie zachowuje całą informację i nie udaje wiedzy, której nie masz?</div>
+        <ul class="quiz-options">
+          <li>Zamienić 0 na 1.0, bo "pewnie nie było rabatu".<span class="why">To zgadywanie wpisane w dane. Po tej zamianie nikt nie odróżni Twoich jedynek od prawdziwych.</span></li>
+          <li>Usunąć te wiersze.<span class="why">Panel przestaje być kompletny, a lagi liczone przez przesunięcie o wiersz zaczynają trafiać w złe dni.</span></li>
+          <li data-correct>Zamienić 0 na NaN i dodać kolumnę logiczną, która pamięta, gdzie było zero.<span class="why">Tak. Zero znika ze skali liczbowej, na której nie wiadomo, co znaczy, a flaga przechowuje fakt. Model dostanie obie informacje osobno.</span></li>
+          <li>Zostawić 0 jako liczbę.<span class="why">Model liniowy potraktuje je jako rabat dwa razy głębszy niż 0.5 i dopasuje do tych wierszy całą zależność sprzedaży od ceny.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="merge">
+      <h2>Fakty, wymiary i merge</h2>
+
+      <p>Tabela sprzedaży to <strong>tabela faktów</strong>: jeden wiersz to jedno zdarzenie. Informacje, które opisują sklep albo produkt i nie zmieniają się z dnia na dzień, trzyma się osobno, w <strong>tabelach wymiarów</strong>: jeden wiersz na sklep, jeden na produkt.</p>
+
+      <p>Ma to dwa powody. Kategoria produktu powtórzona w każdym z 4,5 miliona wierszy to zmarnowana pamięć. I ważniejszy: jeśli produkt zmieni kategorię, chcesz poprawić jeden wiersz w jednym miejscu.</p>
+
+      <p>Wymiar dołączasz do faktów przez <code>merge</code>. O wyniku decyduje <strong>kardynalność</strong>, czyli to, ile razy klucz występuje po każdej stronie.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Relacja</th><th>Klucz po lewej</th><th>Klucz po prawej</th><th>Liczba wierszy wyniku</th></tr></thead>
+          <tbody>
+            <tr><td>one to one</td><td>unikalny</td><td>unikalny</td><td>jak po lewej</td></tr>
+            <tr><td>many to one</td><td>powtarza się</td><td>unikalny</td><td>jak po lewej</td></tr>
+            <tr><td>many to many</td><td>powtarza się</td><td>powtarza się</td><td>rośnie</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Fakty z wymiarem to zawsze many to one. Kłopot w tym, że pandas nie wie, czego się spodziewasz. Jeśli klucz w wymiarze się powtórzy, zrobi many to many i nic nie powie. Zepsuj wymiar poniżej i zobacz.</p>
+
+      <figure class="widget" id="merge-widget">
+        <p class="widget-title">Co robi merge, gdy wymiar jest zepsuty</p>
+        <p class="widget-sub">Zmień stan wymiaru i argumenty. Obserwuj liczbę wierszy i sumę sprzedaży.</p>
+        <div class="controls">
+          <label><input type="checkbox" data-role="duplicate"> produkt 4 wpisany dwa razy</label>
+          <label><input type="checkbox" data-role="missing"> brak produktu 92 w wymiarze</label>
+        </div>
+        <div class="controls">
+          <label>how <select data-role="how"><option>left</option><option>inner</option></select></label>
+          <label>validate <select data-role="validate"><option value="">(brak)</option><option>many_to_one</option></select></label>
+          <label><input type="checkbox" data-role="indicator"> sprawdzam <code>indicator</code></label>
+        </div>
+        <div class="widget-grid two">
+          <div><h4>fakty: sales</h4><div class="table-wrap" data-role="fact"></div></div>
+          <div><h4>wymiar: products</h4><div class="table-wrap" data-role="dim"></div></div>
+        </div>
+        <h4 class="widget-result">wynik</h4>
+        <div class="table-wrap" data-role="result"></div>
+        <div class="stat-row" data-role="stats"></div>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <p>Dwie rzeczy warto zapamiętać z tego eksperymentu.</p>
+
+      <p><code>validate="many_to_one"</code> łapie powtórzony klucz w wymiarze. To jedno słowo zamienia cichy błąd w <code>MergeError</code>.</p>
+
+      <p><code>validate</code> nie łapie klucza, którego w wymiarze brakuje. Przy <code>how="left"</code> dostajesz wiersze z NaN, przy <code>how="inner"</code> wiersze po prostu znikają. Do tego służy <code>indicator=True</code>: dodaje kolumnę <code>_merge</code>, z której wynika, czy wiersz znalazł parę.</p>
+
+<pre><code class="language-python">merged = fact.merge(dim, on="product_id", how="left", validate="many_to_one", indicator=True)
+unmatched = int((merged["_merge"] != "both").sum())
+if unmatched:
+    raise ValueError(f"{unmatched} fact rows have a product_id absent from the dimension.")
+merged = merged.drop(columns="_merge")</code></pre>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Każdy <code>merge</code> ma jawne <code>on</code>, <code>how</code> i <code>validate</code>. Po złączeniu z wymiarem sprawdzasz, czy każdy wiersz faktów znalazł parę.</p>
+      </div>
+
+      <div class="quiz" id="q5" data-type="single">
+        <div class="quiz-q">Tabela faktów ma 1 000 wierszy. W wymiarze jest 50 produktów, z czego jeden wpisano dwa razy. 40 wierszy faktów dotyczy tego produktu. Ile wierszy zwróci <code>fact.merge(dim, on="product_id", how="left")</code>?</div>
+        <ul class="quiz-options">
+          <li>1 000<span class="why">Tak by było, gdyby klucz w wymiarze był unikalny.</span></li>
+          <li data-correct>1 040<span class="why">Tak. Każdy z 40 wierszy łączy się z dwoma wierszami wymiaru, więc przybywa 40.</span></li>
+          <li>1 051<span class="why">Dodatkowy wiersz wymiaru nie dokleja się do wyniku. Mnożą się tylko te wiersze faktów, które do niego pasują.</span></li>
+          <li>Żadnego, poleci <code>MergeError</code><span class="why">Tylko z argumentem <code>validate</code>. Bez niego pandas nie ma jak wiedzieć, że duplikat to pomyłka.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q6" data-type="single">
+        <div class="quiz-q"><code>fact.merge(dim, on="store_id", how="left", validate="many_to_one")</code> wykonało się bez błędu, a liczba wierszy się nie zmieniła. Co wciąż może być nie tak?</div>
+        <ul class="quiz-options">
+          <li>W wymiarze mógł być powtórzony klucz.<span class="why">To akurat <code>validate</code> wykluczyło.</span></li>
+          <li data-correct>Część wierszy faktów mogła nie znaleźć pary i ma NaN w kolumnach wymiaru.<span class="why">Tak. Złączenie lewostronne zachowuje wszystkie wiersze z lewej, także te bez pary. Liczba wierszy się zgadza, a dane są dziurawe.</span></li>
+          <li>Wynik mógł zgubić wiersze faktów.<span class="why">Przy <code>how="left"</code> to niemożliwe. Gubi je <code>inner</code>.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="groupby">
+      <h2>groupby: zwijanie kontra zachowanie kształtu</h2>
+
+      <p><code>groupby</code> dzieli ramkę na grupy i coś w każdej liczy. Ważne jest, co robi z wynikiem. Są dwa tryby i trzeba je rozróżniać bez zastanowienia.</p>
+
+      <figure class="widget" id="groupby-widget">
+        <p class="widget-title">Ta sama średnia, dwa kształty wyniku</p>
+        <p class="widget-sub">Dwie serie po trzy dni. Przełącz operację.</p>
+        <div class="controls">
+          <div class="segmented" role="group" aria-label="Operacja">
+            <button type="button" data-op="agg" aria-pressed="true">agg("mean")</button>
+            <button type="button" data-op="transform" aria-pressed="false">transform("mean")</button>
+            <button type="button" data-op="shift" aria-pressed="false">shift(1)</button>
+          </div>
+        </div>
+        <div class="widget-grid two">
+          <div><h4>wejście</h4><div class="table-wrap" data-role="input"></div></div>
+          <div><h4>wynik</h4><div class="table-wrap" data-role="output"></div></div>
+        </div>
+        <pre class="no-copy" data-role="code"></pre>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <ul>
+        <li><strong>Zwijanie</strong> (<code>agg</code>, <code>mean</code>, <code>sum</code>, <code>size</code>) zwraca jeden wiersz na grupę. Tak buduje się tabele wymiarów i podsumowania.</li>
+        <li><strong>Zachowanie kształtu</strong> (<code>transform</code>, <code>shift</code>, <code>cumsum</code>, <code>rank</code>) zwraca jedną wartość na każdy wiersz wejścia, policzoną w obrębie jego grupy. Wynik ma ten sam indeks co ramka, więc można go od razu przypisać jako nową kolumnę.</li>
+      </ul>
+
+      <p>Kilka agregacji naraz zapisujesz nazwanymi argumentami. Każdy to <code>nowa_kolumna=(kolumna_źródłowa, funkcja)</code>:</p>
+
+<pre><code class="language-python">store_dim = df.groupby("store_id", as_index=False).agg(
+    n_products=("product_id", "nunique"),
+    mean_sales=("sale_amount", "mean"),
+)</code></pre>
+
+      <p>Typowe użycie <code>transform</code>: sprowadzić serie do wspólnej skali. Duży sklep sprzedaje dziesięć razy więcej niż mały. Jeśli chcesz porównać kształt ich tygodnia, dzielisz każdą serię przez jej własną średnią.</p>
+
+<pre><code class="language-python">series_mean = df.groupby(["store_id", "product_id"])["sale_amount"].transform("mean")
+df["relative_sales"] = df["sale_amount"] / series_mean</code></pre>
+
+      <div class="quiz" id="q7" data-type="single">
+        <div class="quiz-q">Chcesz dodać do każdego wiersza kolumnę z łączną sprzedażą jego sklepu w całym okresie. Które wyrażenie da Series, którą można wprost przypisać do <code>df["store_total"]</code>?</div>
+        <ul class="quiz-options">
+          <li><code>df.groupby("store_id")["sale_amount"].sum()</code><span class="why">To zwija: jeden wiersz na sklep, indeks to <code>store_id</code>. Przy przypisaniu pandas dopasuje ją do numerów wierszy ramki, więc wartości trafią w przypadkowe wiersze, a reszta dostanie NaN.</span></li>
+          <li data-correct><code>df.groupby("store_id")["sale_amount"].transform("sum")</code><span class="why">Tak. Wynik ma tyle wierszy co <code>df</code> i ten sam indeks.</span></li>
+          <li><code>df["sale_amount"].sum()</code><span class="why">To jedna liczba dla całej ramki, bez podziału na sklepy.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="czas">
+      <h2>Czas w panelu: shift i rolling</h2>
+
+      <p>Cechy modeli prognostycznych powstają głównie z przeszłości tej samej serii: sprzedaż sprzed 7 dni, średnia z ostatniego tygodnia. W pandas to <code>shift</code> i <code>rolling</code>.</p>
+
+      <p>Obie operacje działają na <strong>pozycjach wierszy</strong>, nie na datach. <code>shift(1)</code> znaczy "weź wartość z wiersza powyżej". Z tego biorą się dwie pułapki. Znajdź obie w widżecie.</p>
+
+      <figure class="widget" id="window-widget">
+        <p class="widget-title">Skąd okno bierze wartości</p>
+        <p class="widget-sub">Kliknij wiersz, dla którego liczysz cechę. Niebieskie komórki to wartości, które wchodzą do średniej. Potem wyłącz <code>groupby</code>, a na koniec ustaw lag na 0.</p>
+        <div class="controls">
+          <label>window <input type="range" min="1" max="4" value="3" data-role="window"><output data-role="window-out">3</output></label>
+          <label>lag <input type="range" min="0" max="3" value="1" data-role="lag"><output data-role="lag-out">1</output></label>
+          <label><input type="checkbox" data-role="grouped" checked> <code>groupby</code> po serii</label>
+        </div>
+        <div class="table-wrap" data-role="table"></div>
+        <pre class="no-copy" data-role="code"></pre>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <h3>Pułapka pierwsza: granica serii</h3>
+
+      <p>Bez <code>groupby</code> wiersz powyżej pierwszego dnia serii B to ostatni dzień serii A. Cecha "sprzedaż wczoraj" dostaje sprzedaż innego produktu sprzed trzech miesięcy. pandas nie zgłosi błędu, bo z jego punktu widzenia to zwykłe przesunięcie kolumny.</p>
+
+<pre><code class="language-python">key = ["store_id", "product_id"]
+df["sales_lag_7"] = df.groupby(key)["sale_amount"].shift(7)</code></pre>
+
+      <p>Z <code>groupby</code> pierwsze 7 dni każdej serii dostaje NaN. To poprawna odpowiedź: tej wartości nie ma.</p>
+
+      <p>Nawet z <code>groupby</code> zostają dwa założenia. Wiersze serii muszą być ułożone po dacie, bo inaczej "wiersz powyżej" nie jest "dniem wcześniej". I seria nie może mieć luk, bo inaczej siedem wierszy wstecz to nie siedem dni wstecz. Jedno sprawdza się funkcją, drugie regułą kompletności panelu.</p>
+
+      <h3>Pułapka druga: dzień bieżący</h3>
+
+      <p><code>rolling(7).mean()</code> liczy średnią z siedmiu wierszy, <strong>kończąc na bieżącym</strong>. Jeśli użyjesz jej jako cechy do przewidywania sprzedaży w tym samym dniu, w cesze siedzi jedna siódma odpowiedzi. Model wygląda świetnie na danych historycznych i zawodzi, gdy przyjdzie mu prognozować dzień, którego sprzedaży jeszcze nikt nie zna.</p>
+
+      <p>To pierwszy przykład zjawiska o nazwie <strong>leakage</strong> (przeciek): do cech trafia informacja, której w chwili prognozy nie będzie. Poświęcimy mu dużą część modułu 08. Tutaj wystarczy mechanika: najpierw przesuń, potem licz okno.</p>
+
+<pre><code class="language-python">past = df.groupby(key)["sale_amount"].shift(1)            # wczoraj i wcześniej
+df["sales_mean_7"] = (
+    past.groupby([df[k] for k in key])
+    .rolling(7)
+    .mean()
+    .reset_index(level=key, drop=True)
+)</code></pre>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Okno kończy się najpóźniej wczoraj. Lagi i okna liczysz wewnątrz serii, na panelu posortowanym i kompletnym.</p>
+      </div>
+
+      <div class="quiz" id="q8" data-type="single">
+        <div class="quiz-q">
+          <p>Ramka jest posortowana po serii i dacie. Jaką wartość ma <code>df["sale"].shift(1)</code> w wierszu o indeksie 3?</p>
+<pre class="no-copy"><code class="language-text">   series  dt          sale
+0  A       2024-04-01   2.0
+1  A       2024-04-02   4.0
+2  A       2024-04-03   6.0
+3  B       2024-04-01  10.0
+4  B       2024-04-02  20.0</code></pre>
+        </div>
+        <ul class="quiz-options">
+          <li><code>NaN</code><span class="why">Tak byłoby po <code>df.groupby("series")["sale"].shift(1)</code>. Zwykły <code>shift</code> nie wie nic o seriach.</span></li>
+          <li data-correct><code>6.0</code><span class="why">Tak. To wartość z wiersza powyżej, czyli ostatni dzień serii A. Dla serii B to liczba bez znaczenia.</span></li>
+          <li><code>10.0</code><span class="why">To wartość własna wiersza. <code>shift(1)</code> przesuwa o jedną pozycję w dół.</span></li>
+          <li><code>20.0</code><span class="why">Tak działałoby <code>shift(-1)</code>, czyli spojrzenie w przyszłość.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q9" data-type="single">
+        <div class="quiz-q">Kolega dodał cechę <code>df.groupby(key)["sale_amount"].rolling(7).mean()</code> i błąd modelu spadł o połowę. Co sprawdzisz najpierw?</div>
+        <ul class="quiz-options">
+          <li>Czy okno 14 dni nie da jeszcze lepszego wyniku.<span class="why">Najpierw trzeba ustalić, czy obecny wynik jest prawdziwy.</span></li>
+          <li data-correct>Czy okno nie obejmuje dnia, który model ma przewidzieć.<span class="why">Tak. <code>rolling(7)</code> bez przesunięcia kończy się na bieżącym wierszu. Nagła duża poprawa po dodaniu jednej cechy to klasyczny objaw przecieku.</span></li>
+          <li>Czy <code>groupby</code> nie spowalnia treningu.<span class="why">Szybkość nie ma znaczenia, dopóki nie wiadomo, czy wynik jest uczciwy.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="tablice">
+      <h2>Tablice w komórkach</h2>
+
+      <p>Wróćmy do dwóch ciężkich kolumn. <code>hours_sale</code> trzyma sprzedaż w każdej z 24 godzin dnia. <code>hours_stock_status</code> mówi, czy w danej godzinie towaru brakowało. Jedynka oznacza brak.</p>
+
+      <p>To najcenniejsza informacja w tym zbiorze. Gdy towaru nie ma, sprzedaż wynosi zero bez względu na to, ilu klientów chciało go kupić. <strong>Sprzedaż to nie popyt</strong>, a model ma przewidywać popyt. W 44% wierszy tego zbioru towaru zabrakło przynajmniej na godzinę.</p>
+
+      <p>pandas trzyma taką kolumnę jako kolumnę obiektów: w każdej komórce siedzi osobna tablica NumPy. Operacje kolumnowe pandas na niej nie działają. Można iść wiersz po wierszu w pętli Pythona, co na 4,5 miliona wierszy trwa minuty. Można też zauważyć, że n wierszy po 24 liczby to prostokąt.</p>
+
+<pre><code class="language-python">status = np.stack(df["hours_stock_status"].tolist())   # kształt (n, 24)
+out_of_stock = status.astype(bool)
+
+oos_hours_total = out_of_stock.sum(axis=1)             # godziny bez towaru w całym dniu
+oos_hours = out_of_stock[:, 6:22].sum(axis=1)          # tylko godziny 6:00-22:00</code></pre>
+
+      <p>Trzy rzeczy z modułu 05 pracują tu razem:</p>
+      <ul>
+        <li><strong>Oś.</strong> <code>axis=1</code> zwija kolumny tablicy, więc zostaje jedna liczba na wiersz.</li>
+        <li><strong>Wycinek.</strong> <code>[:, 6:22]</code> bierze wszystkie wiersze i kolumny od 6 do 21.</li>
+        <li><strong>Maska.</strong> <code>np.where(out_of_stock, 0.0, sales)</code> zeruje sprzedaż w godzinach bez towaru, element po elemencie.</li>
+      </ul>
+
+      <p>W labie zmierzysz różnicę czasu między pętlą a tablicą i sprawdzisz, czy Twoje <code>oos_hours</code> zgadza się z kolumną, którą autorzy zbioru policzyli sami.</p>
+
+      <div class="quiz" id="q10" data-type="single">
+        <div class="quiz-q"><code>sales</code> ma kształt <code>(1000, 24)</code>. Jaki kształt ma <code>sales[:, 6:22].sum(axis=1)</code>?</div>
+        <ul class="quiz-options">
+          <li><code>(16,)</code><span class="why">Tak byłoby dla <code>axis=0</code>: suma po wierszach, jedna liczba na godzinę.</span></li>
+          <li data-correct><code>(1000,)</code><span class="why">Tak. Wycinek ma kształt (1000, 16), a suma po osi 1 zostawia jedną liczbę na wiersz.</span></li>
+          <li><code>(1000, 16)</code><span class="why">To kształt samego wycinka, przed sumowaniem.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="kontrakt">
+      <h2>Kontrakt danych</h2>
+
+      <p>Na końcu labu zapiszesz plik <code>data/processed/daily.parquet</code>. Każdy następny moduł zaczyna od jego wczytania. Kod, który ten plik pisze, i kod, który go czyta, powstają w odstępie tygodni. Między nimi jest umowa: jakie kolumny, w jakiej kolejności, co znaczą.</p>
+
+      <p>Umowa, której nikt nie sprawdza, przestaje obowiązywać przy pierwszej zmianie. Dlatego jest zapisana w jednym miejscu jako kod i sprawdzana po obu stronach.</p>
+
+<pre><code class="language-python"># schema.py: jedno źródło prawdy
+PROCESSED_COLUMNS = ["store_id", "product_id", "city_id", "dt", "sale_amount", ...]
+
+# przy odczycie
+daily = pd.read_parquet(path)
+if list(daily.columns) != PROCESSED_COLUMNS:
+    raise ValueError(f"{path} does not match PROCESSED_COLUMNS. Rebuild it.")</code></pre>
+
+      <p>Ten sam plik <code>schema.py</code> trzyma nazwy kolumn jako stałe. Piszesz <code>df[TARGET]</code> zamiast <code>df["sale_amount"]</code>. Literówka w stałej kończy się błędem przy imporcie. Literówka w napisie kończy się <code>KeyError</code> po dwudziestu minutach obliczeń albo, co gorsze, nową pustą kolumną.</p>
+    </section>
+
+    <section id="podsumowanie">
+      <h2>Podsumowanie</h2>
+
+      <p>Pięć reguł z tego wykładu. W labie zamienisz każdą na kod.</p>
+      <ol>
+        <li>Wybieraj kolumny i wiersze przy czytaniu.</li>
+        <li>Założenie o danych to kod, który rzuca wyjątek z liczbą złych wierszy.</li>
+        <li>Każdy <code>merge</code> ma <code>on</code>, <code>how</code> i <code>validate</code>, a po nim sprawdzasz niedopasowane klucze.</li>
+        <li>Lagi i okna liczysz wewnątrz serii, a okno kończy się najpóźniej wczoraj.</li>
+        <li>Kształt danych między modułami to kontrakt zapisany w kodzie.</li>
+      </ol>
+
+      <p>Wszystkie pięć trafią do standardu inżynierskiego kursu, według którego tutor sprawdza Twoje pull requesty.</p>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Napiszesz sześć plików pakietu <code>freshcast</code> i zbudujesz zbiór, od którego zaczyna każdy następny moduł. Około 7 godzin.</p>
+      <p>Otwórz <code>labs/07-pandas-panel/07-pandas-panel.ipynb</code> w VS Code albo uruchom <code>uv run jupyter lab</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+<script src="widgets.js"></script>
+</body>
+</html>

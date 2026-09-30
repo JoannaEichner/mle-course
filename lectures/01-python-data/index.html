@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01 · Struktury danych i przepływ | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="01">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">01 · Struktury danych i przepływ</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 01 · Część 1: inżynieria w Pythonie</p>
+    <h1>Struktury danych i przepływ</h1>
+    <p class="lede">Umiesz napisać pętlę i funkcję. Ten moduł dotyczy tego, co dzieje się pod spodem, kiedy piszesz <code>b = a</code>. Od tej odpowiedzi zależy, czy funkcja czyszcząca dane zepsuje Ci oryginał.</p>
+
+    <div class="callout">
+      <span class="label">Fragment pilotażowy</span>
+      <p>To jedna sekcja wykładu 01. Pokazuje, jak działają ćwiczenia z kodem uruchamianym w przeglądarce. Pełny wykład powstanie w kolejnym etapie.</p>
+    </div>
+
+    <p>W każdym bloku poniżej najpierw wybierz, co Twoim zdaniem wypisze kod. Dopiero potem go uruchom. Python ładuje się do przeglądarki przy pierwszym uruchomieniu, co trwa kilka sekund i wymaga sieci.</p>
+
+    <section id="nazwy">
+      <h2>Nazwy i obiekty</h2>
+
+      <p>W Pythonie zmienna nie jest pudełkiem z wartością. Jest <strong>nazwą</strong> przyczepioną do <strong>obiektu</strong>. Przypisanie <code>b = a</code> nie kopiuje niczego. Przyczepia drugą nazwę do tego samego obiektu.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">prices = [10, 12, 15]
+promo = prices
+promo[0] = 8
+print(prices)</code></pre>
+        <ul class="quiz-options">
+          <li><code>[10, 12, 15]</code><span class="why">Tak by było, gdyby <code>promo = prices</code> robiło kopię. Nie robi.</span></li>
+          <li data-correct><code>[8, 12, 15]</code><span class="why">Tak. <code>prices</code> i <code>promo</code> to dwie nazwy jednej listy. Zmiana przez jedną jest widoczna przez drugą.</span></li>
+          <li>Błąd: nie można zmieniać <code>promo</code><span class="why">Listę można zmieniać przez każdą nazwę, która na nią wskazuje.</span></li>
+        </ul>
+      </div>
+
+      <p>Stąd biorą się dwa różne pytania o równość:</p>
+      <ul>
+        <li><code>a == b</code> pyta, czy obiekty mają <strong>taką samą wartość</strong>.</li>
+        <li><code>a is b</code> pyta, czy to <strong>ten sam obiekt</strong>.</li>
+      </ul>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">a = [1, 2]
+b = [1, 2]
+c = a
+print(a == b, a is b, a is c)</code></pre>
+        <ul class="quiz-options">
+          <li><code>True True True</code><span class="why"><code>a</code> i <code>b</code> powstały z dwóch osobnych literałów, więc to dwie różne listy o tej samej zawartości.</span></li>
+          <li data-correct><code>True False True</code><span class="why">Tak. Ta sama wartość, dwa obiekty. <code>c</code> to druga nazwa listy <code>a</code>.</span></li>
+          <li><code>False False True</code><span class="why"><code>==</code> porównuje zawartość, a ta jest identyczna.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p><code>is</code> używaj tylko do porównań z <code>None</code>: <code>if value is None</code>. Wszędzie indziej chodzi Ci o wartość, czyli o <code>==</code>.</p>
+      </div>
+    </section>
+
+    <section id="mutowalnosc">
+      <h2>Mutowalność</h2>
+
+      <p>Obiekty dzielą się na te, które da się zmienić w miejscu, i te, których się nie da.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mutowalne</th><th>Niemutowalne</th></tr></thead>
+          <tbody>
+            <tr><td><code>list</code>, <code>dict</code>, <code>set</code></td><td><code>int</code>, <code>float</code>, <code>str</code>, <code>tuple</code>, <code>frozenset</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Dopóki obiekt jest niemutowalny, współdzielenie go między nazwami jest nieszkodliwe: nikt nie może go zmienić pod Twoją nieobecność. Z listą i słownikiem jest inaczej. Najczęściej wychodzi to przy funkcjach, bo argument funkcji to kolejna nazwa tego samego obiektu.</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">def add_promo(calendar, day):
+    calendar.append(day)
+    return calendar
+
+week = ["pon", "wt"]
+weekend = add_promo(week, "sob")
+print(week)</code></pre>
+        <ul class="quiz-options">
+          <li><code>['pon', 'wt']</code><span class="why">Funkcja nie dostała kopii. <code>calendar</code> wewnątrz funkcji to ta sama lista co <code>week</code> na zewnątrz.</span></li>
+          <li data-correct><code>['pon', 'wt', 'sob']</code><span class="why">Tak. <code>append</code> zmienił listę w miejscu, a <code>week</code> wciąż na nią wskazuje. Funkcja zmieniła dane wywołującego.</span></li>
+          <li>Błąd: <code>week</code> nie istnieje wewnątrz funkcji<span class="why">Funkcja nie używa nazwy <code>week</code>. Dostaje obiekt pod nazwą <code>calendar</code>.</span></li>
+        </ul>
+      </div>
+
+      <p>Ta sama mechanika stoi za jedną z najsłynniejszych pułapek Pythona. Wartość domyślna argumentu powstaje <strong>raz</strong>, w chwili definiowania funkcji, a nie przy każdym wywołaniu.</p>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">def collect(sale, basket=[]):
+    basket.append(sale)
+    return basket
+
+collect(3)
+print(collect(5))</code></pre>
+        <ul class="quiz-options">
+          <li><code>[5]</code><span class="why">Tak by było, gdyby pusta lista powstawała przy każdym wywołaniu.</span></li>
+          <li data-correct><code>[3, 5]</code><span class="why">Tak. Oba wywołania dopisują do tej samej listy, która żyje razem z funkcją. Poprawny zapis to <code>basket=None</code> i utworzenie listy w środku.</span></li>
+          <li>Błąd: lista nie może być wartością domyślną<span class="why">Może. Python na to pozwala i dlatego to pułapka, a nie błąd składni.</span></li>
+        </ul>
+      </div>
+
+      <h3>Kopia płytka i głęboka</h3>
+
+      <p>Skoro przypisanie nie kopiuje, kopię trzeba zrobić jawnie. <code>list(x)</code>, <code>x.copy()</code> i <code>x[:]</code> robią kopię <strong>płytką</strong>: nowy kontener, w którym siedzą te same obiekty co w starym.</p>
+
+      <div class="predict" id="p5" data-type="single">
+<pre><code class="language-python">stock = {"jabłka": [5, 3], "gruszki": [2, 2]}
+snapshot = stock.copy()
+
+stock["jabłka"].append(9)
+stock["śliwki"] = [1]
+print(snapshot)</code></pre>
+        <ul class="quiz-options">
+          <li><code>{'jabłka': [5, 3], 'gruszki': [2, 2]}</code><span class="why">Tak działałaby kopia głęboka, <code>copy.deepcopy(stock)</code>.</span></li>
+          <li data-correct><code>{'jabłka': [5, 3, 9], 'gruszki': [2, 2]}</code><span class="why">Tak. Nowy klucz nie trafił do kopii, bo słownik jest osobny. Lista pod kluczem <code>jabłka</code> jest jednak ta sama w obu słownikach.</span></li>
+          <li><code>{'jabłka': [5, 3, 9], 'gruszki': [2, 2], 'śliwki': [1]}</code><span class="why">To zawartość <code>stock</code>. <code>snapshot</code> jest osobnym słownikiem i nowych kluczy nie dostaje.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Funkcja nie zmienia swoich argumentów. Zwraca nowy obiekt. Wyjątkiem jest funkcja, która w nazwie i w docstringu mówi wprost, że zmienia w miejscu.</p>
+      </div>
+
+      <p>Ta reguła zostanie z Tobą do końca kursu. Wróci w module 06 jako "funkcja czyszcząca zwraca nową ramkę" i w każdym review.</p>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Twoja kolej</h2>
+
+      <p>Napisz funkcję, która stosuje rabat do listy cen. Ma zwrócić <strong>nową</strong> listę. Lista wejściowa ma zostać nietknięta. Ceny zaokrąglij do dwóch miejsc.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+def apply_discount(prices, rate):
+    """Return new prices lowered by `rate` (0.2 means 20% off)."""
+    ...
+
+
+print(apply_discount([10.0, 12.5], 0.2))
+</script>
+        <script type="text/x-python" data-role="test">
+_original = [10.0, 12.5, 99.99]
+_result = apply_discount(_original, 0.2)
+assert _result is not None, "Funkcja nic nie zwraca. Zwróć nową listę."
+assert _result == [8.0, 10.0, 79.99], f"Dla [10.0, 12.5, 99.99] i rabatu 0.2 oczekiwano [8.0, 10.0, 79.99], a jest {_result}"
+assert _original == [10.0, 12.5, 99.99], "Lista wejściowa została zmieniona. Zbuduj nową."
+assert _result is not _original, "Zwrócono tę samą listę, a nie nową."
+assert apply_discount([], 0.5) == [], "Dla pustej listy wynik to pusta lista."
+</script>
+      </div>
+
+      <p>Przycisk "Sprawdź" uruchamia Twój kod, a po nim kilka testów. Jeśli któryś nie przejdzie, komunikat powie który.</p>
+    </section>
+
+    <div class="next">
+      <h2>Dalej</h2>
+      <p>Pełny moduł 01 obejmie jeszcze comprehensions, generatory, pliki i wyjątki, a lab poprowadzi przez parsowanie zbioru Monash Car Parts w czystym Pythonie.</p>
+      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

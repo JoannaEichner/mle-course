@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+/dist/
+/build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dane i artefakty: pobierane i budowane lokalnie, nigdy w repo
+/data/
+/mlruns/
+/mlartifacts/
+
+# Lokalny stan kursanta (profil danych, postęp, kopie zapasowe)
+.course/
+
+# Widok kursanta budowany z gałęzi solutions (tylko dla autora)
+/_main/
+
+# Edytory i system
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+CLAUDE.local.md
+
+# Tutor and authoring instructions are part of the course, even if a global
+# gitignore hides files with this name.
+!AGENTS.md
