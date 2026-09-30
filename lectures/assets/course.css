@@ -377,9 +377,12 @@ button {
 
 code,
 pre,
-kbd {
+kbd,
+textarea {
   font-family: var(--mono);
   font-size: 0.875em;
+  /* "--update" must read as two hyphens, not as one joined glyph. */
+  font-variant-ligatures: none;
 }
 
 :not(pre) > code {
