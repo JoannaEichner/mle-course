@@ -8,13 +8,16 @@ learner writes whole (a Dockerfile, a workflow) are copied from
 """
 
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 from coursekit import markers, paths
 
 _CANDIDATE_REFS = ("solutions", "origin/solutions", "upstream/solutions")
-_TRACKED_DIRS = ("src/freshcast", "tests", "shelfwise")
+_TRACKED_DIRS = ("src/freshcast", "tests", "shelfwise", "labs")
+# Lab notebooks are authored as jupytext files; the learner has the .ipynb.
+_LAB_SUFFIX = ".lab.py"
 
 
 def _git(*args: str) -> str | None:
@@ -57,7 +60,7 @@ def catch_up(module: int) -> list[Path]:
     rewritten = []
 
     for name in listing.splitlines():
-        if not name.endswith(".py"):
+        if not name.endswith(".py") or name.endswith(_LAB_SUFFIX):
             continue
         source = _git("show", f"{ref}:{name}")
         if source is None:
@@ -76,8 +79,19 @@ def catch_up(module: int) -> list[Path]:
             encoding="utf-8",
         )
         rewritten.append(Path(name))
+    _format([paths.ROOT / name for name in rewritten])
     rewritten.extend(_copy_whole_files(ref, module, backup_dir))
     return rewritten
+
+
+def _format(files: list[Path]) -> None:
+    """Format rewritten files: removing block markers leaves extra blank lines."""
+    if not files:
+        return
+    subprocess.run(  # noqa: S603 - ruff on files this module just wrote
+        [sys.executable, "-m", "ruff", "format", "--quiet", *map(str, files)],
+        check=False,
+    )
 
 
 def _copy_whole_files(ref: str, module: int, backup_dir: Path) -> list[Path]:

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12 · Klasyfikacja | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="12">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">12 · Klasyfikacja</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 12 · Część 2: dane i ML</p>
+    <h1>Klasyfikacja</h1>
+    <p class="lede">Nie każda decyzja potrzebuje liczby sztuk. Czasem wystarczy odpowiedź tak albo nie: czy jutro produktu zabraknie na cały dzień? Model zwraca wtedy prawdopodobieństwo, a decyzję podejmuje próg. Ten moduł dotyczy obu: jak ocenić model, który przewiduje rzadkie zdarzenie, i jak wybrać próg, żeby decyzje kosztowały najmniej.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduły 08-11</li>
+      <li><b>Potem:</b> <a href="../../labs/12-classification/README.md">lab 12</a>, około 6 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>zbudować etykietę z przyszłości tak, żeby nie przeciekła,</li>
+      <li>wyjaśnić regresję logistyczną i log-loss,</li>
+      <li>liczyć precision, recall i F1 i wiedzieć, czemu accuracy kłamie przy rzadkiej klasie,</li>
+      <li>czytać krzywą precision-recall i average precision,</li>
+      <li>wybrać próg z kosztów błędów,</li>
+      <li>sprawdzić kalibrację i przewidzieć skutek wag klas.</li>
+    </ul>
+
+    <section id="etykieta">
+      <h2>Etykieta z jutra</h2>
+
+      <p>Pytanie labu: na koniec dnia <code>t</code>, czy produkt będzie niedostępny przez całe okno 6:00-22:00 dnia <code>t + 1</code>? Etykieta wiersza dnia <code>t</code> to wynik dnia następnego, więc powstaje przez przesunięcie wstecz, <code>shift(-1)</code>, wewnątrz serii.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"series": ["a", "a", "b", "b"], "oos_hours": [16, 3, 16, 16]})
+tomorrow = df.groupby("series")["oos_hours"].shift(-1)
+print(tomorrow.tolist(), (tomorrow == 16).tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[3.0, 16.0, 16.0, nan] [False, True, True, False]</code><span class="why">Tak byłoby bez <code>groupby</code>: ostatni dzień serii a dostałby jutro serii b.</span></li>
+          <li data-correct><code>[3.0, nan, 16.0, nan] [False, False, True, False]</code><span class="why">Tak. Ostatni dzień każdej serii nie ma jutra. Porównanie <code>NaN == 16</code> daje <code>False</code>, więc "nie wiem" po cichu staje się "brak nie wystąpi".</span></li>
+          <li><code>[nan, 16.0, nan, 16.0] [False, True, False, True]</code><span class="why">To <code>shift(1)</code>: wczorajsza wartość. Etykieta "wczoraj był brak" dałaby modelowi doskonały, bezużyteczny wynik.</span></li>
+        </ul>
+      </div>
+
+      <p>Wiersz bez jutra ma etykietę <strong>nieznaną</strong>. Usuwasz go jawnie, według reguły: etykiety brakuje dokładnie w ostatnim dniu każdej serii. Przy podziale po czasie jest jeszcze jeden szczegół: etykieta dnia tuż przed granicą to wynik pierwszego dnia po niej. Ten wiersz usuwasz z treningu, bo w chwili treningu jego wyniku jeszcze nie znasz.</p>
+
+      <p>Cechy obowiązuje ta sama zasada co zawsze: tylko to, co znane w chwili prognozy. Prognoza powstaje wieczorem dnia <code>t</code>, więc dzisiejsza sprzedaż i dzisiejsze godziny braku są dozwolone. Z jutra tylko to, co ustalono z góry: kalendarz i zaplanowany rabat.</p>
+    </section>
+
+    <section id="logistyczna">
+      <h2>Regresja logistyczna</h2>
+
+      <p>Regresja logistyczna liczy wynik liniowy jak regresja z modułu 08, a potem zamienia go na prawdopodobieństwo funkcją sigmoidalną:</p>
+
+<pre><code class="language-text">z = w · x + b
+p = 1 / (1 + e^(−z))</code></pre>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+z = np.array([-2.0, 0.0, 2.0])
+print(np.round(1 / (1 + np.exp(-z)), 2))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>[0.12 0.5  0.88]</code><span class="why">Tak. Wynik 0 to prawdopodobieństwo 0.5, a sigmoida jest symetryczna: −2 i 2 dają 0.12 i 0.88.</span></li>
+          <li><code>[0.   0.5  1.  ]</code><span class="why">Sigmoida zbliża się do 0 i 1, ale ich nie osiąga. Przy z = 2 to dopiero 0.88.</span></li>
+          <li><code>[-2.  0.  2. ]</code><span class="why">Wynik liniowy przechodzi przez sigmoidę, która ściska go do przedziału (0, 1).</span></li>
+        </ul>
+      </div>
+
+      <p>Funkcją straty nie jest tu MSE, tylko <strong>log-loss</strong>: <code>−[y·log(p) + (1−y)·log(1−p)]</code>. Karze pewność w złą stronę bardzo mocno: prawdopodobieństwo 0.01 dla zdarzenia, które nastąpiło, kosztuje ponad 4.6, a 0.5 tylko 0.69. Dzięki temu model uczony na log-loss zwraca prawdopodobieństwa, które zwykle są bliskie rzeczywistym częstościom.</p>
+    </section>
+
+    <section id="metryki">
+      <h2>Precision, recall i accuracy</h2>
+
+      <p>Po wybraniu progu każdy wiersz trafia do jednej z czterech kratek:</p>
+
+      <table>
+        <thead><tr><th></th><th>brak nastąpił</th><th>brak nie nastąpił</th></tr></thead>
+        <tbody>
+          <tr><th>alarm</th><td>trafiony alarm (TP)</td><td>fałszywy alarm (FP)</td></tr>
+          <tr><th>cisza</th><td>przegapiony brak (FN)</td><td>spokój (TN)</td></tr>
+        </tbody>
+      </table>
+
+      <ul>
+        <li><strong>precision</strong> = TP / (TP + FP): jaka część alarmów była trafiona,</li>
+        <li><strong>recall</strong> = TP / (TP + FN): jaka część braków została złapana,</li>
+        <li><strong>F1</strong>: średnia harmoniczna obu, niska, gdy którakolwiek jest niska.</li>
+      </ul>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+y = np.array([1, 1, 1, 0, 0, 0, 0, 0])
+alarm = np.array([1, 1, 0, 1, 1, 0, 0, 0])
+tp = ((alarm == 1) & (y == 1)).sum()
+print(tp / alarm.sum(), tp / y.sum())</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>0.5 0.6666666666666666</code><span class="why">Tak. Cztery alarmy, dwa trafione: precision 0.5. Trzy braki, dwa złapane: recall 2/3.</span></li>
+          <li><code>0.6666666666666666 0.5</code><span class="why">Odwrotnie. Precision dzieli przez liczbę alarmów, recall przez liczbę zdarzeń.</span></li>
+          <li><code>0.625 0.625</code><span class="why">0.625 to accuracy: 5 z 8 wierszy dobrze. Tu liczymy co innego.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Accuracy</strong>, czyli udział trafnych odpowiedzi, przy rzadkiej klasie mówi niewiele:</p>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+y = np.array([0] * 92 + [1] * 8)
+never = np.zeros(100)
+print((never == y).mean(), never[y == 1].mean())</code></pre>
+        <ul class="quiz-options">
+          <li><code>0.08 0.0</code><span class="why">Model, który zawsze mówi "nie", ma rację na każdym wierszu bez zdarzenia, czyli w 92 na 100.</span></li>
+          <li data-correct><code>0.92 0.0</code><span class="why">Tak. Accuracy 92% i recall 0: model nie złapał żadnego braku. W labie model "nigdy" ma accuracy około 0.9.</span></li>
+          <li><code>0.92 0.92</code><span class="why">Druga liczba to średnia przewidywania na wierszach ze zdarzeniem, czyli recall. Model nigdy nie alarmuje, więc 0.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="prog">
+      <h2>Próg i krzywa precision-recall</h2>
+
+      <p>Model zwraca prawdopodobieństwo. Alarm to decyzja: <code>p ≥ próg</code>. Niski próg łapie więcej braków (wyższy recall) za cenę większej liczby fałszywych alarmów (niższa precision). Każdy próg daje punkt na <strong>krzywej precision-recall</strong>. Pole pod nią, liczone schodkowo, to <strong>average precision</strong> (AP): miara rankingu, niezależna od progu. Losowy ranking ma AP równe udziałowi klasy pozytywnej.</p>
+
+      <p>Krzywa ROC i jej pole (ROC AUC) to popularna alternatywa. Przy rzadkiej klasie jest zbyt łaskawa, bo na osi ma udział fałszywych alarmów wśród wszystkich dni bez zdarzenia, a tych jest ogromnie dużo. Kilkaset fałszywych alarmów to na tej osi mały procent, a dla zespołu, który je obsługuje, dużo pracy. Precision pokazuje to wprost.</p>
+
+      <figure class="widget" id="threshold-widget">
+        <p class="widget-title">Próg na prawdziwych wynikach</p>
+        <p class="widget-sub">Wyniki LightGBM z tygodnia testowego labu: 18 536 wierszy, 1 505 pełnych braków. Przesuwaj próg i zmieniaj koszty.</p>
+        <div class="controls">
+          <label>próg <input type="range" min="0" max="50" step="1" value="25" data-role="threshold"> <output data-role="threshold-value"></output></label>
+          <label>koszty (fałszywy alarm : przegapiony brak) <select data-role="costs"><option value="0">1 : 1</option><option value="1" selected>1 : 5</option><option value="2">1 : 10</option></select></label>
+        </div>
+        <div data-role="chart"></div>
+        <div class="stat-row" data-role="stats"></div>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <h3>Próg z kosztów</h3>
+
+      <p>Próg 0.5 zakłada, że oba błędy kosztują tyle samo. Jeśli fałszywy alarm kosztuje 1, a przegapiony brak 5, alarm opłaca się, gdy oczekiwana strata z ciszy przewyższa stratę z alarmu:</p>
+
+<pre><code class="language-text">p · 5 > (1 − p) · 1   ⟺   p > 1 / (1 + 5) ≈ 0.17</code></pre>
+
+      <p>To działa dla prawdopodobieństw skalibrowanych. W praktyce próg wybierasz na walidacji, licząc koszt przy każdym kandydacie, a koszt wybranego progu raportujesz na teście.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Przegapiony brak zaczyna kosztować 10 zamiast 5. Co dzieje się z optymalnym progiem, precision i recall?</div>
+        <ul class="quiz-options">
+          <li>Próg rośnie, precision rośnie, recall spada.<span class="why">Droższe przegapienie sprawia, że alarm opłaca się wcześniej, a nie później.</span></li>
+          <li data-correct>Próg spada (do około 1/11), recall rośnie, precision spada.<span class="why">Tak. Łapiesz więcej braków za cenę większej liczby fałszywych alarmów. Nie ma darmowej poprawy obu naraz.</span></li>
+          <li>Nic, bo model się nie zmienił.<span class="why">Model się nie zmienił, ale decyzja tak. Próg to część polityki, a nie modelu.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="kalibracja">
+      <h2>Kalibracja i wagi klas</h2>
+
+      <p>Model jest <strong>skalibrowany</strong>, gdy wśród wierszy z prawdopodobieństwem 0.3 około 30% to naprawdę zdarzenia. Sprawdzasz to tabelą: przedziały prawdopodobieństwa, w każdym średnie przewidywanie i obserwowana częstość. Kalibracja to inna własność niż ranking: model może dobrze porządkować wiersze i mimo to podawać zawyżone liczby.</p>
+
+      <p>Przy rzadkiej klasie tutoriale często polecają <code>class_weight="balanced"</code>: wiersze rzadkiej klasy ważą w treningu więcej. W labie efekt jest wyraźny:</p>
+      <ul>
+        <li>ranking prawie się nie zmienia: AP regresji logistycznej 0.469 bez wag, 0.465 z wagami,</li>
+        <li>prawdopodobieństwa rosną: średnio 0.26 zamiast 0.08, przy częstości 0.08,</li>
+        <li>optymalny próg przesuwa się w górę, a koszt zostaje ten sam.</li>
+      </ul>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Po co więc wagi klas?</div>
+        <ul class="quiz-options">
+          <li>Żeby model lepiej rozpoznawał rzadką klasę.<span class="why">Ranking, czyli rozpoznawanie, prawie się nie zmienił. Zmieniła się skala prawdopodobieństw.</span></li>
+          <li data-correct>Czasem pomagają modelom, które inaczej ignorują rzadką klasę. Tu tylko przesuwają prawdopodobieństwa, a to samo robi zmiana progu, bez psucia kalibracji.<span class="why">Tak. Jeśli prawdopodobieństwa mają znaczyć częstości, na przykład do planowania zapasu, wagi trzeba zostawić albo skalibrować model od nowa.</span></li>
+          <li>Żeby próg 0.5 działał.<span class="why">To efekt uboczny, a nie cel. Próg i tak wybierasz z kosztów.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Precision i recall</h3>
+
+      <p>Napisz <code>precision_recall(y, alarm)</code>: para (precision, recall). Przy zerowym mianowniku wynik to 0.0.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def precision_recall(y, alarm):
+    """(precision, recall) of 0/1 alarms against 0/1 labels; 0.0 on an empty denominator."""
+    ...
+
+
+print(precision_recall(np.array([1, 1, 1, 0, 0]), np.array([1, 0, 0, 1, 0])))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_p, _r = precision_recall(_np.array([1, 1, 1, 0, 0]), _np.array([1, 0, 0, 1, 0]))
+assert abs(_p - 0.5) < 1e-9 and abs(_r - 1 / 3) < 1e-9, f"Dwa alarmy, jeden trafiony: precision 0.5. Trzy zdarzenia, jedno złapane: recall 1/3. Jest {_p}, {_r}."
+assert precision_recall(_np.array([1, 0]), _np.array([0, 0])) == (0.0, 0.0), "Bez alarmów precision i recall to 0.0."
+assert precision_recall(_np.array([0, 0]), _np.array([1, 0])) == (0.0, 0.0), "Bez zdarzeń recall to 0.0, a jedyny alarm jest fałszywy."
+</script>
+      </div>
+
+      <h3>Najtańszy próg</h3>
+
+      <p>Napisz <code>cheapest_threshold(y, scores, cost_false, cost_missed)</code>: spośród różnych wartości <code>scores</code> i opcji "bez alarmu" (<code>float("inf")</code>) wybierz próg o najniższym koszcie. Alarm to <code>score ≥ próg</code>. Przy remisie wygrywa wyższy próg.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def cheapest_threshold(y, scores, cost_false, cost_missed):
+    """Threshold with the lowest total cost; inf means no alarm at all."""
+    ...
+
+
+y = np.array([1, 0, 1, 0, 0])
+scores = np.array([0.9, 0.8, 0.4, 0.3, 0.1])
+print(cheapest_threshold(y, scores, 1, 5))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_y = _np.array([1, 0, 1, 0, 0])
+_s = _np.array([0.9, 0.8, 0.4, 0.3, 0.1])
+assert cheapest_threshold(_y, _s, 1, 5) == 0.4, "Przy kosztach 1 i 5 opłaca się złapać oba zdarzenia: próg 0.4, koszt 1."
+assert cheapest_threshold(_y, _s, 1, 1) == 0.9, "Przy kosztach 1 i 1: próg 0.9 (koszt 1), 0.4 też kosztuje 1, ale wyższy próg wygrywa remis."
+assert cheapest_threshold(_np.array([0, 1, 0]), _np.array([0.9, 0.5, 0.1]), 10, 1) == float("inf"), "Gdy najwyższy wynik to fałszywy alarm, a ten kosztuje 10, taniej nie alarmować wcale."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Zbudujesz etykietę pełnego braku na jutro i cechy znane wieczorem, napiszesz metryki od zera, porównasz baseline "tak jak dziś", regresję logistyczną i LightGBM, wybierzesz próg z kosztów, sprawdzisz kalibrację i wpadniesz w pułapkę kolumn z jutra. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/12-classification/12-classification.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+<script src="widgets.js"></script>
+</body>
+</html>

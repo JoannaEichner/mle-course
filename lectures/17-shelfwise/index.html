@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>17 · Cudzy kod | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="17">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">17 · Cudzy kod</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 17 · Część 3: produkcja</p>
+    <h1>Cudzy kod</h1>
+    <p class="lede">Większość pracy inżyniera to kod, którego nie napisał: pisany przez kilka osób, przez kilka lat, z decyzjami, których nikt już nie pamięta. Ten moduł dotyczy metody: jak się w takim kodzie odnaleźć, jak znaleźć przyczynę błędu, zamiast zgadywać, i jak go poprawić tak, żeby nie wrócił.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 45 minut</li>
+      <li><b>Wymagane:</b> moduły 04, 06 i 16</li>
+      <li><b>Potem:</b> <a href="../../labs/17-shelfwise/README.md">lab 17</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>zbudować mapę nieznanego programu, zanim cokolwiek zmienisz,</li>
+      <li>odtworzyć błąd na danych i zawęzić miejsce, w którym powstaje,</li>
+      <li>napisać test, który łapie przyczynę, zanim ją poprawisz,</li>
+      <li>znaleźć test zależny od daty i uniezależnić go od zegara,</li>
+      <li>mierzyć, zanim przyspieszysz,</li>
+      <li>trzymać zmianę w zakresie ticketu i opisać ją w pull requeście.</li>
+    </ul>
+
+    <section id="mapa">
+      <h2>Najpierw mapa</h2>
+
+      <p>Pierwsza godzina w cudzym kodzie to czytanie i uruchamianie, a nie poprawianie. Pytania, na które odpowiadasz:</p>
+      <ul>
+        <li><strong>Jak to uruchomić?</strong> README, <code>__main__.py</code>, polecenie z CI. Uruchom i zobacz, co powstaje,</li>
+        <li><strong>Gdzie jest punkt wejścia?</strong> Funkcja, od której wszystko się zaczyna. W niej widać kolejność kroków,</li>
+        <li><strong>Skąd bierze się liczba z ticketu?</strong> Prześledź jedną wartość od pliku wejściowego do raportu: która funkcja ją tworzy, która zmienia, która zapisuje,</li>
+        <li><strong>Co mówią testy?</strong> Testy to najlepsza dokumentacja zamiarów autora, o ile przechodzą,</li>
+        <li><strong>Co mówi historia?</strong> <code>git log -p plik</code> i <code>git blame</code> pokazują, kto i dlaczego zmienił linię. Komunikat commita bywa jedynym śladem decyzji.</li>
+      </ul>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Ticket: "Sumy w raporcie nie zgadzają się z fakturami". Pierwszy dzień z kodem. Od czego zaczynasz?</div>
+        <ul class="quiz-options">
+          <li>Od przejrzenia wszystkich plików w poszukiwaniu czegoś podejrzanego.<span class="why">W dwóch tysiącach linii "coś podejrzanego" jest wszędzie. Bez celu czytasz długo i nie wiesz, czego szukasz.</span></li>
+          <li data-correct>Od policzenia liczby z ticketu samemu, z danych wejściowych, i porównania z programem krok po kroku.<span class="why">Tak. Masz wtedy dwie liczby i szukasz pierwszego kroku, na którym się rozchodzą. To zawęża poszukiwania do jednej funkcji.</span></li>
+          <li>Od przepisania obliczenia sum od nowa, porządnie.<span class="why">Nowy kod ma nowe błędy, a stary błąd zostaje niezrozumiany. Ticket prosi o poprawkę, nie o rewolucję.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="debugowanie">
+      <h2>Szukanie przyczyny</h2>
+
+      <p>Debugowanie to zawężanie. Masz miejsce, gdzie wynik jest dobry (wejście), i miejsce, gdzie jest zły (raport). Sprawdzasz środek. Połowa, w której wynik jest już zły, zostaje, drugą odrzucasz. Po kilku krokach zostaje jedna funkcja, potem jedna linia.</p>
+
+      <p>Narzędzia:</p>
+      <ul>
+        <li><strong>jeden przypadek zamiast wszystkich</strong>: jeden produkt, jedna faktura, jeden tydzień. Na pięciu wierszach widać, co robi kod,</li>
+        <li><strong>debugger</strong>: <code>breakpoint()</code> w kodzie zatrzymuje program. W VS Code punkt przerwania i podgląd zmiennych, bez dopisywania <code>print</code>,</li>
+        <li><strong><code>git bisect</code></strong>: gdy wiadomo, że kiedyś działało, git sam wybiera commity do sprawdzenia, dzieląc historię na pół.</li>
+      </ul>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import math
+
+# Something broke between two releases 1000 commits apart.
+# git bisect halves the range with every test.
+print(math.ceil(math.log2(1000)))</code></pre>
+        <ul class="quiz-options">
+          <li><code>500</code><span class="why">Tyle trwałoby przeglądanie commitów po kolei, średnio. Bisekcja dzieli zakres na pół przy każdym teście.</span></li>
+          <li data-correct><code>10</code><span class="why">Tak. Dziesięć testów wystarczy, żeby wśród tysiąca commitów znaleźć ten, który zepsuł wynik. Warunek: masz szybki sposób sprawdzenia "dobry czy zły".</span></li>
+          <li><code>100</code><span class="why">Połowienie tysiąca daje 500, 250, 125... Dziesięć kroków sprowadza zakres do jednego commitu.</span></li>
+        </ul>
+      </div>
+
+      <p>Niektóre błędy łatwo przeoczyć przy czytaniu, bo kod wygląda poprawnie:</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">prices = [3, 1, 2]
+print(sorted(prices), prices.sort())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[1, 2, 3] [1, 2, 3]</code><span class="why"><code>list.sort()</code> sortuje w miejscu i zwraca <code>None</code>. Kod <code>ordered = prices.sort()</code> daje <code>None</code>, a błąd wychodzi dopiero dalej.</span></li>
+          <li data-correct><code>[1, 2, 3] None</code><span class="why">Tak. Metody, które zmieniają obiekt w miejscu, zwykle zwracają <code>None</code>. To częsta przyczyna tajemniczego <code>NoneType has no attribute</code> daleko od miejsca błędu.</span></li>
+          <li><code>[3, 1, 2] None</code><span class="why"><code>sorted</code> zwraca nową, posortowaną listę.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="test">
+      <h2>Najpierw test, który pada</h2>
+
+      <p>Gdy znasz przyczynę, zanim ją poprawisz, napisz test, który pada <em>z tego powodu</em>. Daje trzy rzeczy:</p>
+      <ul>
+        <li>dowód, że przyczyna jest właściwa: test pada przed poprawką i przechodzi po niej,</li>
+        <li>ochronę przed powrotem błędu, gdy ktoś za rok "uprości" poprawiony kod,</li>
+        <li>dokumentację: nazwa testu mówi, jakiego zachowania oczekujesz.</li>
+      </ul>
+
+      <p>Test ma być mały: kilka wierszy danych zbudowanych w teście, które pokazują przyczynę (T2), a nie cały plik faktur. Jeśli testu nie da się napisać, bo funkcja robi za dużo naraz, to też jest informacja o kodzie.</p>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Poprawiłeś błąd, wszystkie istniejące testy przechodzą, a nowego nie dopisałeś. Czego nie wiesz?</div>
+        <ul class="quiz-options">
+          <li>Niczego, testy przechodzą.<span class="why">Przechodziły też przed poprawką, więc nie sprawdzały tego błędu.</span></li>
+          <li data-correct>Czy poprawka usuwa przyczynę i czy błąd nie wróci.<span class="why">Tak. Test, który padał przed poprawką i przechodzi po niej, jest jedynym dowodem.</span></li>
+          <li>Czy kod jest szybki.<span class="why">Szybkość to osobne pytanie. Tu chodzi o to, czy poprawka jest poprawna.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="niestabilne">
+      <h2>Testy zależne od daty</h2>
+
+      <p>Test, który raz przechodzi, a raz pada, bez zmiany kodu, jest gorszy niż brak testu: uczy wszystkich ignorować czerwone CI. Najczęstsze przyczyny to data, losowość, kolejność testów i sieć (T4). Daty mają dodatkowo pułapki kalendarza:</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">from datetime import date
+
+day = date(2021, 1, 1)
+print(day.isocalendar().week, day.strftime("%W"))</code></pre>
+        <ul class="quiz-options">
+          <li><code>1 01</code><span class="why">1 stycznia nie zawsze jest w pierwszym tygodniu. W 2021 był piątkiem, a tydzień ISO należy do roku, w którym ma czwartek.</span></li>
+          <li data-correct><code>53 00</code><span class="why">Tak. Według ISO to 53. tydzień roku 2020, a według <code>%W</code> tydzień zerowy 2021. Dwa systemy numeracji, dwie różne odpowiedzi w tym samym dniu.</span></li>
+          <li><code>53 53</code><span class="why"><code>%W</code> liczy tygodnie od pierwszego poniedziałku roku, więc dni przed nim są w tygodniu 00.</span></li>
+        </ul>
+      </div>
+
+      <p>Test, który porównuje wynik z <code>date.today()</code> liczonym inną metodą, przechodzi przez większość roku i pada na przełomie. Naprawa nie polega na zmianie oczekiwanego napisu, tylko na wstrzyknięciu daty: funkcja przyjmuje <code>now</code> jako argument, a test podaje stałą datę, w tym datę z przełomu roku. Gdy kodu nie da się zmienić, zegar zamraża się w teście (<code>freezegun.freeze_time</code>).</p>
+    </section>
+
+    <section id="wydajnosc">
+      <h2>Wydajność: najpierw pomiar</h2>
+
+      <p>Intuicja o tym, co jest wolne, myli się częściej, niż się wydaje. <strong>Profiler</strong> mierzy, ile czasu zajmuje każda funkcja:</p>
+
+<pre><code class="language-bash">uv run python -m cProfile -s cumulative -m shelfwise run --config settings.yaml | head -30</code></pre>
+
+      <p>Typowe przyczyny wolnego kodu w pandas to pętle po wierszach (<code>iterrows</code>, <code>apply</code> z Pythonem w środku) i powtarzane w pętli filtrowanie całej ramki. Pętla po produktach, w której każdy krok filtruje całą tabelę, rośnie kwadratowo: dwa razy więcej produktów to cztery razy dłużej. Jedno <code>merge</code> albo <code>groupby</code> robi to samo w czasie liniowym (K7).</p>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Raport dla 5 000 produktów liczy się 7 sekund, dla 20 000 prawie dwie minuty. Co to mówi o kodzie?</div>
+        <ul class="quiz-options">
+          <li>Maszyna jest za wolna.<span class="why">Szybsza maszyna skróci oba czasy w tej samej proporcji. Problem jest w tym, jak czas rośnie.</span></li>
+          <li data-correct>Czas rośnie szybciej niż liczba produktów. Gdzieś jest pętla, która w każdym kroku przegląda całe dane.<span class="why">Tak. Cztery razy więcej danych i szesnaście razy dłużej to znak wzrostu kwadratowego. Profiler wskaże miejsce.</span></li>
+          <li>Trzeba dodać cache.<span class="why">Cache pomaga, gdy liczysz to samo wiele razy. Najpierw zmierz, gdzie idzie czas.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="zakres">
+      <h2>Zakres zmiany</h2>
+
+      <p>W cudzym kodzie kusi, żeby "przy okazji" poprawić formatowanie, nazwy i wszystko, co razi. Każda taka zmiana utrudnia review: recenzent szuka jednej poprawki wśród stu zmienionych linii. Zasady:</p>
+      <ul>
+        <li>jeden ticket, jedna gałąź, jeden pull request (G1),</li>
+        <li>poprawiasz to, czego dotyczy ticket, a otoczenie tylko tam, gdzie go dotykasz,</li>
+        <li>znaleziony po drodze inny błąd to osobny ticket albo osobny pull request, nie dodatek do obecnego,</li>
+        <li>opis pull requesta: objaw, przyczyna jednym zdaniem, jak ją odtworzyłeś, co sprawdza nowy test.</li>
+      </ul>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Bisekcja</h3>
+
+      <p>Napisz <code>first_bad(n, is_bad)</code>: wersje 0..n−1, od pewnej wersji wszystkie są złe, wcześniejsze dobre. Znajdź pierwszą złą, wołając <code>is_bad</code> jak najrzadziej. Jeśli wszystkie są dobre, zwróć <code>n</code>.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+def first_bad(n, is_bad):
+    """Index of the first bad version among 0..n-1, or n if none is bad."""
+    ...
+
+
+print(first_bad(1000, lambda version: version >= 637))
+</script>
+        <script type="text/x-python" data-role="test">
+_calls = []
+def _probe(version, _first=637):
+    _calls.append(version)
+    return version >= _first
+assert first_bad(1000, _probe) == 637, f"Pierwsza zła wersja to 637. Jest {first_bad(1000, lambda v: v >= 637)}."
+assert len(_calls) <= 11, f"Wystarczy około 10 sprawdzeń, a było {len(_calls)}. Dziel zakres na pół."
+assert first_bad(10, lambda v: False) == 10, "Gdy żadna wersja nie jest zła, wynik to n."
+assert first_bad(10, lambda v: True) == 0, "Gdy wszystkie są złe, pierwsza zła to 0."
+</script>
+      </div>
+
+      <h3>Etykieta tygodnia bez zegara</h3>
+
+      <p>Napisz <code>week_label(now=None)</code>: napis <code>"2021-W53"</code> z roku i numeru tygodnia ISO daty <code>now</code>, a bez argumentu z dzisiejszej daty. Rok ma być rokiem ISO, nie kalendarzowym.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+from datetime import date
+
+
+def week_label(now=None):
+    """ISO year and week of `now` (today by default), like '2024-W07'."""
+    ...
+
+
+print(week_label(date(2024, 2, 14)))
+</script>
+        <script type="text/x-python" data-role="test">
+from datetime import date as _date
+assert week_label(_date(2024, 2, 14)) == "2024-W07", f"14 lutego 2024 to 2024-W07. Jest {week_label(_date(2024, 2, 14))}."
+assert week_label(_date(2021, 1, 1)) == "2020-W53", "1 stycznia 2021 należy do 53. tygodnia roku ISO 2020."
+assert week_label(_date(2024, 12, 30)) == "2025-W01", "30 grudnia 2024 należy do pierwszego tygodnia roku ISO 2025."
+_today = _date.today().isocalendar()
+assert week_label() == f"{_today.year}-W{_today.week:02d}", "Bez argumentu: dzisiejsza data."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Przejmujesz <code>shelfwise</code> i sześć ticketów: rozbieżne sumy, nowa metryka, nowa cecha, zbyt dobra walidacja, test, który pada w styczniu, i wolny raport. Zaliczasz cztery, każdy jako osobny pull request z testem. Około 7 godzin.</p>
+      <p>Zacznij od <code>labs/17-shelfwise/README.md</code>, a potem <code>shelfwise/README.md</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: UCI Online Retail II (CC BY 4.0)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>06 · pandas I: czyszczenie | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="06">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">06 · pandas I: czyszczenie</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 06 · Część 2: dane i ML</p>
+    <h1>pandas I: czyszczenie</h1>
+    <p class="lede">Model jest tak dobry jak dane, na których się uczy, a prawdziwe dane zawsze mają niespodzianki. Czyszczenie to nie usuwanie wszystkiego, co wygląda dziwnie. To seria decyzji, z których każda coś twierdzi o danych, więc każdą trzeba policzyć, uzasadnić i zapisać.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduł 05</li>
+      <li><b>Potem:</b> <a href="../../labs/06-pandas-cleaning/README.md">lab 06</a>, około 6 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>czytać plik z jawnymi typami i rozpoznać kolumnę, która tylko wygląda dobrze,</li>
+      <li>policzyć braki i duplikaty, zanim coś z nimi zrobisz, i odróżnić ich rodzaje,</li>
+      <li>wybierać wiersze przez <code>.loc</code> z maską i budować kolumny przez <code>assign</code>,</li>
+      <li>pisać przetwarzanie jako łańcuch funkcji zwracających nowe ramki,</li>
+      <li>zapisać założenie o danych jako funkcję, która zgłasza błąd z liczbą.</li>
+    </ul>
+
+    <section id="ramka">
+      <h2>Series i DataFrame</h2>
+
+      <p><code>pd.Series</code> to tablica NumPy z etykietami, czyli <strong>indeksem</strong>. <code>pd.DataFrame</code> to kilka Series o wspólnym indeksie, po jednej na kolumnę. Każda kolumna ma własny typ. Operacje działają na całych kolumnach, jak w NumPy.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+lines = pd.DataFrame({
+    "invoice": ["489434", "489434", "C489449"],
+    "stock_code": ["85048", "79323P", "22087"],
+    "quantity": [12, 12, -12],
+    "price": [6.95, 6.75, 2.95],
+})
+lines.dtypes                            # invoice: str, quantity: int64, price: float64
+lines["quantity"] * lines["price"]      # Series: wartość każdej linii
+lines["quantity"].sum()                 # 12</code></pre>
+
+      <p>Indeks to etykiety wierszy, nie numery pozycji. Po filtrowaniu albo sortowaniu zostają stare etykiety, dlatego po takich operacjach często pisze się <code>reset_index(drop=True)</code>.</p>
+    </section>
+
+    <section id="typy">
+      <h2>Typy: kolumna, która wygląda dobrze</h2>
+
+      <p>Arkusz Excela nie ma typów kolumn, tylko typy komórek. Numer faktury bywa liczbą (<code>489434</code>) albo tekstem (<code>C489449</code>), bo anulowania mają literę. pandas, czytając taki arkusz, robi kolumnę typu <code>object</code>, w której leżą obok siebie liczby i napisy.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+invoices = pd.Series([489434, "C489449", 489435], dtype=object)
+print(invoices.str.startswith("C").tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[False, True, False]</code><span class="why">Tego się spodziewasz. Ale <code>.str</code> na komórce z liczbą nie ma czego sprawdzić.</span></li>
+          <li data-correct><code>[nan, True, nan]</code><span class="why">Tak. Dla liczb wynik to brak, bez ostrzeżenia. W prawdziwym pliku to 98% faktur.</span></li>
+          <li><code>AttributeError</code><span class="why">Błąd byłby lepszy, bo zatrzymałby program. pandas go nie zgłasza.</span></li>
+        </ul>
+      </div>
+
+      <p>Dlatego plik czyta się z jawnymi typami: <code>pd.read_excel(path, dtype={"Invoice": str, "StockCode": str})</code>. Typ to część umowy o danych, a nie szczegół techniczny.</p>
+
+      <p>Liczby całkowite z brakami to osobny przypadek. W NumPy brak (<code>NaN</code>) istnieje tylko we <code>float</code>, więc identyfikatory klientów z pustymi komórkami przychodzą jako liczby zmiennoprzecinkowe. pandas ma typ całkowity z brakami, pisany wielką literą: <code>"Int64"</code>.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+ids = pd.Series([12346.0, None, 12347.0])
+print(ids.dtype, ids.astype("Int64").tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>int64 [12346, None, 12347]</code><span class="why">Zwykły <code>int64</code> nie pomieści braku. pandas przy wczytaniu wybiera <code>float64</code>.</span></li>
+          <li data-correct><code>float64 [12346, &lt;NA&gt;, 12347]</code><span class="why">Tak. <code>Int64</code> trzyma liczby całkowite i osobny znacznik braku <code>pd.NA</code>.</span></li>
+          <li><code>float64 [12346, 0, 12347]</code><span class="why">Zamiana typu nie wymyśla wartości. Klient 0 byłby fikcją, która obejmie ćwierć miliona wierszy.</span></li>
+        </ul>
+      </div>
+
+      <table>
+        <thead><tr><th>Typ</th><th>Na co</th></tr></thead>
+        <tbody>
+          <tr><td><code>str</code></td><td>tekst: kody, numery faktur, nazwy (w pandas 3 domyślny typ tekstu)</td></tr>
+          <tr><td><code>int64</code>, <code>Int64</code></td><td>liczby całkowite bez braków / z brakami</td></tr>
+          <tr><td><code>float64</code></td><td>liczby rzeczywiste, braki jako <code>NaN</code></td></tr>
+          <tr><td><code>bool</code></td><td>flagi</td></tr>
+          <tr><td><code>datetime64</code></td><td>daty i czasy</td></tr>
+          <tr><td><code>category</code></td><td>tekst z małą liczbą różnych wartości, oszczędza pamięć (moduł 07)</td></tr>
+        </tbody>
+      </table>
+
+      <p>Parquet zapisuje typy razem z danymi, więc po odczycie masz to samo, co zapisałeś, i czyta się go setki razy szybciej niż Excela. Dlatego w labie pierwszym krokiem jest jednorazowe przepisanie skoroszytu do Parquet.</p>
+    </section>
+
+    <section id="braki">
+      <h2>Braki: najpierw policz</h2>
+
+      <p><code>isna()</code> daje maskę braków. Zanim cokolwiek z nimi zrobisz, odpowiedz na trzy pytania: ile ich jest, gdzie są i czy są losowe.</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"customer": [1, None, None], "description": ["a", None, "c"]})
+print(df.isna().sum().sum(), df.isna().any(axis=1).sum())</code></pre>
+        <ul class="quiz-options">
+          <li><code>3 3</code><span class="why">Pierwsza liczba liczy komórki. Druga wiersze z przynajmniej jednym brakiem: wiersz 1 ma dwa braki, ale liczy się raz.</span></li>
+          <li data-correct><code>3 2</code><span class="why">Tak. Trzy puste komórki w dwóch wierszach. "Ile wierszy stracę" to pytanie o drugą liczbę.</span></li>
+          <li><code>2 2</code><span class="why"><code>sum().sum()</code> sumuje braki we wszystkich kolumnach: 2 + 1.</span></li>
+        </ul>
+      </div>
+
+      <p>Każda z trzech decyzji coś twierdzi:</p>
+      <ul>
+        <li><strong>usunąć wiersze</strong>: "te wiersze nie różnią się od reszty, ich brak niczego nie zmieni",</li>
+        <li><strong>wypełnić</strong> (zerem, średnią, poprzednią wartością): "wiem, jaka była prawdziwa wartość",</li>
+        <li><strong>zostawić</strong> i oznaczyć: "nie wiem i nie udaję, że wiem".</li>
+      </ul>
+
+      <div class="callout story">
+        <span class="label">Z labu</span>
+        <p>W pliku z labu 22,8% linii nie ma klienta. Brzmi jak dziura do usunięcia. Ale te linie to 6,1% sztuk i 13,1% przychodu, mają medianę 1 sztuki na linię wobec 5 i wyższą cenę. To inny rodzaj kupującego: detal, a nie hurt. Usunięcie ich przesunęłoby obraz popytu w stronę hurtu. Braki rzadko są losowe.</p>
+      </div>
+    </section>
+
+    <section id="duplikaty">
+      <h2>Duplikaty: dwa rodzaje</h2>
+
+      <p><code>duplicated()</code> oznacza wiersze, które powtarzają wcześniejszy. <code>subset</code> wybiera kolumny, które mają się zgadzać. <code>keep</code> mówi, który egzemplarz nie jest oznaczony: <code>"first"</code> (domyślnie), <code>"last"</code> albo <code>False</code>, czyli oznacz wszystkie.</p>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"invoice": ["1", "1", "1", "2"], "code": ["A", "A", "B", "A"]})
+print(
+    df.duplicated().sum(),
+    df.duplicated(keep=False).sum(),
+    df.duplicated(subset=["invoice"]).sum(),
+)</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>1 2 2</code><span class="why">Tak. Jedna powtórka pary (1, A). Z <code>keep=False</code> oznaczone są oba egzemplarze. Po samej fakturze powtarzają się dwa wiersze faktury 1.</span></li>
+          <li><code>1 1 2</code><span class="why"><code>keep=False</code> oznacza także pierwsze wystąpienie, więc oba wiersze (1, A).</span></li>
+          <li><code>2 2 3</code><span class="why">Domyślnie pierwsze wystąpienie nie jest duplikatem. Oznaczane są tylko kolejne.</span></li>
+        </ul>
+      </div>
+
+      <p>Ważniejsze od składni jest pytanie, skąd duplikat się wziął:</p>
+      <ul>
+        <li><strong>kopia techniczna</strong>: eksport zapisał ten sam fragment dwa razy, na przykład na styku dwóch arkuszy. Taką kopię usuwasz bez wahania, ale najpierw sprawdzasz, że to naprawdę kopia,</li>
+        <li><strong>powtórzenie w źródle</strong>: ta sama linia dwa razy na jednej fakturze. Może to błąd, a może klient dwa razy dodał ten sam towar. Dane tego nie rozstrzygną. Oznaczasz i mierzysz, ile to zmienia.</li>
+      </ul>
+
+      <p><code>drop_duplicates()</code> na całej tabeli wrzuca oba rodzaje do jednego worka i nie mówi, ile usunął. W labie usunie 34 335 wierszy, z czego tylko 22 523 to kopie.</p>
+    </section>
+
+    <section id="loc-assign">
+      <h2>.loc, assign i łańcuchy</h2>
+
+      <p>Wiersze wybierasz maską w <code>.loc</code>, nowe kolumny tworzysz przez <code>assign</code>. Obie operacje zwracają nową ramkę i nie zmieniają starej:</p>
+
+      <div class="predict" id="p5" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"quantity": [5, -2, 3], "price": [1.0, 1.0, 0.0]})
+sales = df.loc[df["quantity"] > 0].assign(revenue=lambda d: d["quantity"] * d["price"])
+print(len(df.columns), sales["revenue"].sum())</code></pre>
+        <ul class="quiz-options">
+          <li><code>3 5.0</code><span class="why"><code>assign</code> dodaje kolumnę do nowej ramki, a <code>df</code> zostaje bez zmian.</span></li>
+          <li data-correct><code>2 5.0</code><span class="why">Tak. Zostają wiersze 5 i 3, przychód 5.0 + 0.0. <code>df</code> ma dalej dwie kolumny.</span></li>
+          <li><code>2 3.0</code><span class="why">Wiersz z ilością −2 wypada przez maskę, a nie przez cenę. Przychód to 5 × 1.0 + 3 × 0.0.</span></li>
+        </ul>
+      </div>
+
+      <p><code>lambda d: ...</code> w <code>assign</code> dostaje ramkę z tego miejsca łańcucha, już po filtrowaniu. Dzięki temu całe przetwarzanie można zapisać jako łańcuch czytany od góry do dołu, a własne funkcje wstawić przez <code>pipe</code>:</p>
+
+<pre><code class="language-python">daily = (
+    raw.pipe(add_flags)
+    .pipe(drop_sheet_overlap)
+    .pipe(product_lines)
+    .pipe(daily_totals)
+)</code></pre>
+
+      <p>Każda funkcja w łańcuchu przyjmuje ramkę i zwraca nową. Każdą da się przetestować osobno, na kilku wierszach.</p>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p><code>df[df["price"] == 0]["price"] = 0.01</code> nie zmienia <code>df</code>. Pierwszy nawias tworzy nową ramkę, a przypisanie trafia do niej, nie do <code>df</code>. W pandas 3 takie przypisanie łańcuchowe nigdy nie działa i daje ostrzeżenie. Zmiana w miejscu to <code>df.loc[maska, "price"] = 0.01</code>, a zwykle lepsza jest nowa kolumna przez <code>assign</code> albo <code>where</code>.</p>
+      </div>
+    </section>
+
+    <section id="walidacja">
+      <h2>Założenie to kod, który zgłasza błąd</h2>
+
+      <p>Każdy krok czyszczenia coś zakłada: że faktura ma sześć cyfr, że anulowanie ma ujemną ilość, że faktura ma jednego klienta. Założenie zapisane tylko w głowie pęknie po cichu przy następnej wersji pliku. Zapisane jako kod zatrzyma przetwarzanie i powie, co się zmieniło:</p>
+
+<pre><code class="language-python">bad = ~raw["invoice"].str.fullmatch(INVOICE_PATTERN)
+if bad.any():
+    example = raw.loc[bad, "invoice"].iloc[0]
+    raise ValueError(
+        f"{int(bad.sum())} invoice numbers do not match {INVOICE_PATTERN}, e.g. {example!r}"
+    )</code></pre>
+
+      <p>Komunikat mówi, która reguła, ile wierszy ją łamie i jak wygląda pierwszy z nich. Tego potrzebujesz, gdy przetwarzanie padnie w nocy.</p>
+
+      <div class="predict" id="p6" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+s = pd.Series(["489434", "5000012", "C489449"])
+print(s.str.match(r"[CA]?\d{6}").tolist(), s.str.fullmatch(r"[CA]?\d{6}").tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[True, False, True] [True, False, True]</code><span class="why"><code>match</code> sprawdza tylko początek: <code>5000012</code> zaczyna się od sześciu cyfr.</span></li>
+          <li data-correct><code>[True, True, True] [True, False, True]</code><span class="why">Tak. Tylko <code>fullmatch</code> wymaga, żeby wzorzec pokrył cały napis. Do walidacji formatu zawsze <code>fullmatch</code>.</span></li>
+          <li><code>[True, True, False] [True, False, False]</code><span class="why"><code>[CA]?</code> dopuszcza literę C na początku.</span></li>
+        </ul>
+      </div>
+
+      <p>Regułę sprawdzasz na prawdziwym pliku, zanim jej zaufasz. Reguła "ujemna ilość tylko na fakturach C" wygląda rozsądnie po obejrzeniu kilku anulowań, a na prawdziwym pliku łamie ją 3 457 linii: odpisy magazynowe. To nie dane są wtedy złe, tylko reguła była za wąska.</p>
+
+      <h3>Uzgodnienie po groupby</h3>
+
+      <p><code>groupby(klucz).sum()</code> zmienia milion linii w pół miliona wierszy. Czy nic nie zginęło? Sprawdzasz to, porównując sumy przed i po. Jest jeden cichy sposób, żeby zginęło:</p>
+
+      <div class="predict" id="p7" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+lines = pd.DataFrame({"code": ["A", None, "A"], "units": [2, 5, 3]})
+print(
+    lines.groupby("code")["units"].sum().sum(),
+    lines.groupby("code", dropna=False)["units"].sum().sum(),
+)</code></pre>
+        <ul class="quiz-options">
+          <li><code>10 10</code><span class="why">Domyślnie <code>groupby</code> pomija wiersze z brakującym kluczem, bez ostrzeżenia.</span></li>
+          <li data-correct><code>5 10</code><span class="why">Tak. Linia z brakującym kodem zniknęła razem z 5 sztukami. <code>dropna=False</code> zostawia ją jako osobną grupę, którą walidacja może odrzucić.</span></li>
+          <li><code>KeyError</code><span class="why">Brakujący klucz nie jest błędem dla <code>groupby</code>. Jest po prostu pomijany.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Raport braków</h3>
+
+      <p>Napisz <code>missing_report</code>: dla każdej kolumny liczba i udział braków, posortowane malejąco po liczbie, tylko kolumny z jakimkolwiek brakiem.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import pandas as pd
+
+
+def missing_report(df):
+    """Count and share of missing values per column with any, most first."""
+    ...
+
+
+df = pd.DataFrame({"a": [1, None, 3, None], "b": ["x", "y", None, "z"], "c": [1, 2, 3, 4]})
+print(missing_report(df))
+</script>
+        <script type="text/x-python" data-role="test">
+import pandas as _pd
+_df = _pd.DataFrame({"a": [1, None, 3, None], "b": ["x", "y", None, "z"], "c": [1, 2, 3, 4]})
+_r = missing_report(_df)
+assert isinstance(_r, _pd.DataFrame), "Wynik ma być ramką."
+assert list(_r.index) == ["a", "b"], f"Kolumny z brakami, od największej liczby: ['a', 'b']. Jest {list(_r.index)}."
+assert list(_r.columns) == ["count", "share"], f"Kolumny wyniku: ['count', 'share']. Są {list(_r.columns)}."
+assert _r.loc["a", "count"] == 2 and abs(_r.loc["b", "share"] - 0.25) < 1e-9, "a ma 2 braki, b ma udział 0.25."
+assert len(_df.columns) == 3, "missing_report zmieniło ramkę wejściową."
+</script>
+      </div>
+
+      <h3>Walidator klucza</h3>
+
+      <p>Napisz <code>check_unique_key(df, key)</code>: jeśli któraś kombinacja kolumn z listy <code>key</code> występuje więcej niż raz, zgłoś <code>ValueError</code> z liczbą powtórzonych wierszy (wszystkich egzemplarzy) i przykładem. W przeciwnym razie nic nie zwracaj.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import pandas as pd
+
+
+def check_unique_key(df, key):
+    """Raise ValueError when a combination of `key` columns repeats."""
+    ...
+
+
+daily = pd.DataFrame({"code": ["A", "A", "B"], "date": ["d1", "d2", "d1"], "units": [1, 2, 3]})
+check_unique_key(daily, ["code", "date"])
+print("Klucz jest unikalny.")
+</script>
+        <script type="text/x-python" data-role="test">
+import pandas as _pd
+_ok = _pd.DataFrame({"code": ["A", "A", "B"], "date": ["d1", "d2", "d1"]})
+assert check_unique_key(_ok, ["code", "date"]) is None, "Dla unikalnego klucza funkcja nic nie zwraca."
+_bad = _pd.DataFrame({"code": ["A", "A", "B", "A"], "date": ["d1", "d1", "d1", "d2"]})
+try:
+    check_unique_key(_bad, ["code", "date"])
+except ValueError as _error:
+    assert "2" in str(_error), f"Komunikat ma podać liczbę powtórzonych wierszy (2). Jest: {_error}"
+else:
+    raise AssertionError("Para (A, d1) występuje dwa razy: ma być ValueError.")
+try:
+    check_unique_key(_bad, ["code"])
+except ValueError as _error:
+    assert "3" in str(_error), f"Po samym kodzie powtarzają się 3 wiersze kodu A. Komunikat: {_error}"
+else:
+    raise AssertionError("Kod A występuje trzy razy: ma być ValueError.")
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Zbudujesz dzienną tabelę sprzedaży z miliona linii faktur: jawne typy i cache w Parquet, reguły z liczbami, flagi zamiast usuwania, kopie oddzielone od powtórzeń, zwroty oddzielone od odpisów i uzgodnienie sum. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/06-pandas-cleaning/06-pandas-cleaning.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: UCI Online Retail II (CC BY 4.0)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

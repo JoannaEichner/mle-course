@@ -17,6 +17,8 @@ FRN_TRAIN = RAW_DIR / "freshretailnet" / "train.parquet"
 FRN_EVAL = RAW_DIR / "freshretailnet" / "eval.parquet"
 CAR_PARTS = RAW_DIR / "car_parts" / "car_parts_dataset_with_missing_values.tsf"
 ONLINE_RETAIL = RAW_DIR / "online_retail" / "online_retail_II.xlsx"
+# Typed parquet copy of the workbook, written once in lab 06 (task 06.1).
+ONLINE_RETAIL_CACHE = ONLINE_RETAIL.with_suffix(".parquet")
 ONLINE_RETAIL_DAILY = PROCESSED_DIR / "online_retail_daily.parquet"
 
 

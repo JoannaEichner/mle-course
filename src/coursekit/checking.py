@@ -34,6 +34,10 @@ class Task:
     ``starts_as`` is the status the check must report in the learner view
     before any work: ``todo`` for code to write, ``fail`` for a ticket in
     existing code that runs but misbehaves.
+
+    ``notebook`` is True for tasks solved in a notebook cell (modules 01-03).
+    Their check needs the learner's object, ``check("01.2", my_function)``,
+    so the command line can only point to the notebook.
     """
 
     id: str
@@ -41,6 +45,7 @@ class Task:
     func: CheckFunction
     graded: bool = True
     starts_as: Status = "todo"
+    notebook: bool = False
 
 
 @dataclass(frozen=True)
@@ -57,14 +62,19 @@ _SYMBOL: dict[Status, str] = {"ok": "✓", "todo": "·", "fail": "✗", "error":
 
 
 def task(
-    task_id: str, title: str, *, graded: bool = True, starts_as: Status = "todo"
+    task_id: str,
+    title: str,
+    *,
+    graded: bool = True,
+    starts_as: Status = "todo",
+    notebook: bool = False,
 ) -> Callable[[CheckFunction], CheckFunction]:
     """Register the decorated function as the check for ``task_id``."""
 
     def register(func: CheckFunction) -> CheckFunction:
         if task_id in _REGISTRY:
             raise ValueError(f"Duplicate check for task {task_id}.")
-        _REGISTRY[task_id] = Task(task_id, title, func, graded, starts_as)
+        _REGISTRY[task_id] = Task(task_id, title, func, graded, starts_as, notebook)
         return func
 
     return register
@@ -110,6 +120,10 @@ def run(tasks: list[Task], target: Any = None) -> list[Result]:
 
 
 def _run_one(item: Task, target: Any) -> Result:
+    if item.notebook and target is None:
+        return Result(
+            item, "todo", f'sprawdzasz w notebooku: check("{item.id}", twoja_funkcja)'
+        )
     try:
         item.func(target)
     except NotImplementedError:

@@ -163,3 +163,58 @@ def check_metric_tests(_target: object) -> None:
     metrics.mae([1.0], [1.0])  # not implemented yet -> todo
     metrics.wape([1.0], [1.0])
     check_tests(TESTS, "metrics", _MIN_TESTS)
+
+
+@task("05.6", "to_matrix: długa tabela jako macierz (seria, dzień)", notebook=True)
+def check_to_matrix(to_matrix: Callable[..., tuple[np.ndarray, np.ndarray]]) -> None:
+    ids = np.array([2, 1, 2, 1, 2, 1])
+    days = np.array([1, 0, 0, 1, 2, 2])
+    values = np.array([20.0, 10.0, 21.0, 11.0, 22.0, 12.0])
+    before = values.copy()
+    series, matrix = to_matrix(ids, days, values, 3)
+    expect(
+        np.array_equal(series, [1, 2]),
+        f"Serie mają wyjść rosnąco: [1, 2]. Dostałem {np.asarray(series).tolist()}.",
+    )
+    wanted = [[10.0, 11.0, 12.0], [21.0, 20.0, 22.0]]
+    expect(
+        np.asarray(matrix).shape == (2, 3) and np.array_equal(matrix, wanted),
+        f"Dla przykładu z zadania oczekiwano {wanted}: wiersz to seria, kolumna to dzień. "
+        f"Dostałem {np.asarray(matrix).tolist()}.",
+    )
+    expect(np.array_equal(values, before), "to_matrix zmieniło tablicę wejściową.")
+    _raises(
+        lambda: to_matrix(ids[:-1], days[:-1], values[:-1], 3),
+        "seria 1 nie ma dnia 2",
+    )
+    _raises(
+        lambda: to_matrix(ids, np.array([1, 0, 0, 1, 2, 0]), values, 3),
+        "seria 1 ma dzień 0 dwa razy, a dnia 2 wcale",
+    )
+    _raises(lambda: to_matrix(ids, days[:-1], values, 3), "tablice mają różne długości")
+
+
+@task(
+    "05.7",
+    "seasonal_naive: prognoza sezonowa dla wszystkich serii naraz",
+    notebook=True,
+)
+def check_seasonal_naive(seasonal_naive: Callable[..., np.ndarray]) -> None:
+    history = np.arange(12.0).reshape(2, 6)
+    got = np.asarray(seasonal_naive(history, horizon=4, season=3))
+    wanted = [[3.0, 4.0, 5.0, 3.0], [9.0, 10.0, 11.0, 9.0]]
+    expect(
+        got.shape == (2, 4) and np.array_equal(got, wanted),
+        f"Historia [[0..5], [6..11]], sezon 3, horyzont 4: oczekiwano {wanted}. "
+        f"Dostałem {got.tolist()}.",
+    )
+    got = np.asarray(seasonal_naive(history, horizon=2, season=3))
+    expect(
+        np.array_equal(got, [[3.0, 4.0], [9.0, 10.0]]),
+        f"Horyzont krótszy niż sezon bierze początek ostatniego sezonu. Dostałem {got.tolist()}.",
+    )
+    _raises(lambda: seasonal_naive(history, horizon=0, season=3), "horyzont wynosi 0")
+    _raises(
+        lambda: seasonal_naive(history, horizon=2, season=7),
+        "historia jest krótsza niż sezon",
+    )

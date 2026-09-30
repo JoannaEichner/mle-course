@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>19 · Capstone | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="19">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">19 · Capstone</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 19 · Część 3: produkcja</p>
+    <h1>Capstone</h1>
+    <p class="lede">Na koniec pytanie, które zada Ci każdy zespół: czy ten model jest lepszy od tego, co mamy, i skąd to wiesz? Ten wykład nie wprowadza nowych technik. Dotyczy tego, jak z liczb z całego kursu zrobić decyzję, której da się bronić, i raport, który ktoś inny zrozumie bez Ciebie.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 40 minut</li>
+      <li><b>Wymagane:</b> cały kurs</li>
+      <li><b>Potem:</b> <a href="../../labs/19-capstone/README.md">lab 19</a> i punkt kontrolny 4, około 9 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>ułożyć dowody za wyborem modelu w kolejności, w jakiej ktoś je sprawdzi,</li>
+      <li>raportować wynik z niepewnością, a nie jedną liczbą,</li>
+      <li>opisać, czym zbiór testowy różni się od treningowego, i co z tego wynika,</li>
+      <li>zaplanować, jak zauważysz, że model w produkcji przestał działać,</li>
+      <li>napisać raport, który pokazuje ograniczenia, a nie je ukrywa.</li>
+    </ul>
+
+    <section id="dowody">
+      <h2>Dowody w kolejności</h2>
+
+      <p>Decyzja o modelu stoi na czterech rodzajach dowodów. Czytelnik raportu sprawdza je w tej kolejności, więc w tej kolejności je podajesz:</p>
+      <ol>
+        <li><strong>Baseline.</strong> Czy model bije najprostszą rozsądną prognozę, na tych samych wierszach? Bez tego reszta nie ma znaczenia (C6),</li>
+        <li><strong>Backtest.</strong> Średnia z kilku tygodni i wynik każdego tygodnia osobno. Czy przewaga powtarza się, czy wynika z jednego szczęśliwego tygodnia?</li>
+        <li><strong>Test.</strong> Jeden tydzień, którego żadna decyzja nie widziała. Potwierdza backtest albo mu przeczy,</li>
+        <li><strong>Koszt.</strong> Czas uczenia, sprzęt, złożoność utrzymania. Model o 0.01 lepszy, ale wymagający karty graficznej w produkcji, musi tę kartę uzasadnić.</li>
+      </ol>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">lightgbm = [0.395, 0.394, 0.358, 0.361]
+gru = [0.407, 0.393, 0.382, 0.379]
+differences = [round(g - l, 3) for l, g in zip(lightgbm, gru)]
+print(differences, sum(d > 0 for d in differences))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>[0.012, -0.001, 0.024, 0.018] 3</code><span class="why">Tak. W trzech tygodniach z czterech GRU jest gorsze, w jednym remisuje. Przewaga LightGBM powtarza się, a nie wynika z jednego tygodnia.</span></li>
+          <li><code>[0.012, 0.001, 0.024, 0.018] 4</code><span class="why">W drugim tygodniu GRU jest odrobinę lepsze: 0.393 wobec 0.394.</span></li>
+          <li><code>[-0.012, 0.001, -0.024, -0.018] 1</code><span class="why">Różnica to GRU minus LightGBM. Dodatnia znaczy, że GRU ma większy błąd.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="test">
+      <h2>Czym różni się test</h2>
+
+      <p>Test pokazuje, jak model radzi sobie z przyszłością, ale przyszłość rzadko wygląda jak przeszłość. Zanim przeczytasz wynik testu, opisz tydzień testowy: pogoda, promocje, święta, udział dni z brakami. W labie tydzień testowy jest cieplejszy niż prawie cały zbiór treningowy.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+train_temperatures = np.array([12.0, 15.0, 18.0, 20.0, 22.0, 24.0, 25.0, 26.0, 27.0, 29.0])
+test_mean = 28.6
+print((train_temperatures < test_mean).mean(), round((test_mean - train_temperatures.mean()) / train_temperatures.std(), 1))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>0.9 1.3</code><span class="why">Tak. 90% dni treningowych jest chłodniejszych, a średnia testu leży 1.3 odchylenia nad średnią treningu. Model widział mało takich dni.</span></li>
+          <li><code>0.1 1.3</code><span class="why">Pierwsza liczba to udział dni <em>chłodniejszych</em> niż test, a tych jest większość.</span></li>
+          <li><code>0.9 6.8</code><span class="why">6.8 to różnica w stopniach. Druga liczba jest w odchyleniach standardowych.</span></li>
+        </ul>
+      </div>
+
+      <p>Co z tego wynika? Jeśli model wypada na teście dobrze, to mimo nietypowego tygodnia, i to jest mocny argument. Jeśli wypada źle, raport musi odróżnić "model jest słaby" od "tydzień był inny". Pomaga porównanie z baselinem na tym samym tygodniu: baseline też cierpi na nietypowość, więc przewaga nad nim jest bardziej miarodajna niż sam WAPE.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Backtest mówi, że wybrany model bije baseline o 0.18 WAPE. Na teście przewaga to 0.02. Co robisz?</div>
+        <ul class="quiz-options">
+          <li>Wracasz do strojenia, aż test znów pokaże 0.18.<span class="why">Wtedy test staje się walidacją i przestaje być testem (C5). Każda decyzja oparta na nim zawyża kolejny wynik.</span></li>
+          <li data-correct>Raportujesz obie liczby i szukasz przyczyny: czym ten tydzień różni się od tygodni backtestu i czy ta różnica będzie się powtarzać.<span class="why">Tak. Rozbieżność to informacja o świecie, a nie błąd do usunięcia. Decyzję podejmujesz na podstawie wyjaśnienia, a nie jednej liczby.</span></li>
+          <li>Ignorujesz test, bo to tylko jeden tydzień.<span class="why">Backtest to cztery tygodnie, test jeden, ale to jedyny tydzień bez żadnego wpływu na decyzje. Nie wolno go pominąć.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="produkcja">
+      <h2>Po wdrożeniu</h2>
+
+      <p>Wdrożony model zaczyna się starzeć od pierwszego dnia: zmieniają się ceny, asortyment, klienci, pogoda. Raport kończy się planem, jak to zauważysz:</p>
+      <ul>
+        <li><strong>błąd na bieżąco</strong>: WAPE i bias liczone co tydzień, gdy wyniki są już znane, obok baseline'u. Rosnący bias to często pierwszy sygnał,</li>
+        <li><strong>dryf wejść</strong>: rozkład cech w bieżącym tygodniu wobec treningu. Temperatura spoza zakresu treningu to ostrzeżenie, zanim błąd wzrośnie,</li>
+        <li><strong>rytm ponownego uczenia</strong>: co tydzień, co miesiąc, po zdarzeniu. Pipeline z modułu 14 robi to jednym poleceniem, a sygnatury modeli z modułu 15 pozwalają wrócić do poprzedniej wersji.</li>
+      </ul>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Od trzech tygodni WAPE modelu jest stabilne, ale bias przesunął się z +2% do −9%. Co to może znaczyć?</div>
+        <ul class="quiz-options">
+          <li>Nic, bo WAPE się nie zmieniło.<span class="why">Stabilny WAPE przy zmianie biasu znaczy, że błędy zmieniły kierunek. Model systematycznie zaniża prognozy.</span></li>
+          <li data-correct>Popyt rośnie albo coś, czego model nie widzi, podnosi sprzedaż. Sklep zamawia za mało, a braki towaru zaczną rosnąć.<span class="why">Tak. Bias to wczesny sygnał. Sprawdź, co się zmieniło: promocje, nowe produkty, sezon, a potem naucz model na nowszych danych.</span></li>
+          <li>Metryka jest źle policzona.<span class="why">Możliwe, ale zanim założysz błąd w metryce, sprawdź dane, bo zmiana biasu to typowy objaw dryfu.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="raport">
+      <h2>Raport</h2>
+
+      <p>Raport pisze się dla kogoś, kto nie był przy pracy i ma dziesięć minut. Pięć sekcji z szablonu labu:</p>
+      <table>
+        <thead><tr><th>Sekcja</th><th>Odpowiada na pytanie</th></tr></thead>
+        <tbody>
+          <tr><td>Dane</td><td>Na czym to działa i czym test różni się od treningu?</td></tr>
+          <tr><td>Walidacja</td><td>Dlaczego mam wierzyć tym liczbom?</td></tr>
+          <tr><td>Wyniki</td><td>Jak dobre są modele, z niepewnością, obok baseline'u?</td></tr>
+          <tr><td>Wybór modelu</td><td>Co wdrażamy i dlaczego to, a nie coś innego?</td></tr>
+          <tr><td>Ograniczenia</td><td>Czego te liczby nie mówią i co może pójść źle?</td></tr>
+        </tbody>
+      </table>
+
+      <p>Kilka zasad, które odróżniają raport od reklamy:</p>
+      <ul>
+        <li>każda liczba ma źródło: run w MLflow, plik <code>test_scores.csv</code>, commit,</li>
+        <li>wynik ma obok siebie rozrzut, na przykład wyniki per fold, a nie samą średnią,</li>
+        <li>wady modelu opisujesz sam, zanim zrobi to recenzent,</li>
+        <li>zalecenie jest konkretne: "wdrażamy LightGBM, uczony co tydzień, z alarmem przy biasie poza ±5%".</li>
+      </ul>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Który opis wyniku jest najlepszy do raportu?</div>
+        <ul class="quiz-options">
+          <li>"Model osiąga świetne wyniki, WAPE 0.37."<span class="why">Brakuje porównania, niepewności i źródła. "Świetne" to opinia, nie wynik.</span></li>
+          <li data-correct>"LightGBM: WAPE 0.377 w backteście (tygodnie od 0.358 do 0.395), 0.371 na tygodniu testowym, wobec 0.562 i 0.517 prognozy naiwnej. Bias +4% w backteście."<span class="why">Tak. Porównanie, rozrzut, test i kierunek błędu w dwóch zdaniach, każda liczba sprawdzalna.</span></li>
+          <li>"Model jest o 33% lepszy od baseline'u."<span class="why">Względna poprawa bez liczb bazowych i bez rozrzutu nie pozwala ocenić, co to znaczy dla sklepu.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Ostrzeżenie o dryfie</h3>
+
+      <p>Napisz <code>drift_report(train, recent)</code>: słownik z dwiema liczbami: <code>"shift"</code>, czyli o ile odchyleń standardowych treningu średnia ostatnich wartości różni się od średniej treningu (odchylenie z <code>ddof=0</code>), i <code>"outside"</code>, czyli jaki udział ostatnich wartości leży poza zakresem treningu (poniżej minimum albo powyżej maksimum).</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def drift_report(train, recent):
+    """How far recent values moved from training: shift in train stds, share outside the train range."""
+    ...
+
+
+print(drift_report(np.array([10.0, 20.0, 30.0]), np.array([25.0, 35.0])))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_r = drift_report(_np.array([10.0, 20.0, 30.0]), _np.array([25.0, 35.0]))
+assert set(_r) == {"shift", "outside"}, f"Klucze: shift i outside. Są {sorted(_r)}."
+assert abs(_r["shift"] - 10 / _np.std([10.0, 20.0, 30.0])) < 1e-9, f"Średnia 30 wobec 20, odchylenie treningu 8.165: shift 1.225. Jest {_r['shift']}."
+assert abs(_r["outside"] - 0.5) < 1e-9, "35 leży powyżej maksimum treningu, 25 w zakresie: outside 0.5."
+_r = drift_report(_np.array([1.0, 2.0, 3.0]), _np.array([0.5, 2.0]))
+assert _r["shift"] < 0 and abs(_r["outside"] - 0.5) < 1e-9, "Wartości poniżej minimum też są poza zakresem, a przesunięcie w dół jest ujemne."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Porównasz baseline, LightGBM i GRU w jednym backteście zapisanym w MLflow, opiszesz tydzień testowy, raz ocenisz model na teście poleceniem <code>freshcast evaluate</code> i napiszesz raport. Potem ostatni punkt kontrolny. Około 9 godzin.</p>
+      <p>Zacznij od <code>labs/19-capstone/README.md</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

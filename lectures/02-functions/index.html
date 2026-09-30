@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>02 · Funkcje i style kodu | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="02">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">02 · Funkcje i style kodu</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 02 · Część 1: inżynieria w Pythonie</p>
+    <h1>Funkcje i style kodu</h1>
+    <p class="lede">Kod czyta się częściej, niż się go pisze. Ten moduł dotyczy funkcji, które da się przeczytać, sprawdzić narzędziem i złożyć z innymi. Od niego zaczynają obowiązywać typy, <code>mypy</code> i <code>ruff</code>.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduł 01</li>
+      <li><b>Potem:</b> <a href="../../labs/02-functions/README.md">lab 02</a>, około 6 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>zaprojektować sygnaturę funkcji: argumenty pozycyjne, nazwane, <code>*args</code> i <code>**kwargs</code>,</li>
+      <li>przekazywać funkcje jako argumenty i zwracać je z innych funkcji,</li>
+      <li>napisać dekorator i fabrykę dekoratorów, które nie gubią nazwy funkcji,</li>
+      <li>opisać typy tak, żeby <code>mypy</code> znalazł błąd, zanim trafi do danych,</li>
+      <li>czytać uwagi <code>ruff</code> i pisać docstringi,</li>
+      <li>rozpoznać styl imperatywny, funkcyjny i obiektowy i dobrać go do problemu.</li>
+    </ul>
+
+    <p>Jak w module 01: w blokach z kodem najpierw wybierz odpowiedź, potem uruchom.</p>
+
+    <section id="sygnatury">
+      <h2>Sygnatura to umowa</h2>
+
+      <p>Sygnatura funkcji mówi, co funkcja przyjmuje. Czytelnik patrzy na nią pierwszy, często jako jedyną rzecz. Python daje kilka rodzajów argumentów:</p>
+
+      <ul>
+        <li><strong>pozycyjne</strong>: <code>f(1, 2)</code>, przypisane w kolejności,</li>
+        <li><strong>nazwane</strong>: <code>f(a=1, b=2)</code>, przypisane po nazwie,</li>
+        <li><strong>z wartością domyślną</strong>: <code>def f(a, b=0)</code>. Domyślna wartość powstaje raz, przy definicji funkcji, dlatego nie może być listą ani słownikiem (moduł 01),</li>
+        <li><code>*args</code>: nadmiarowe argumenty pozycyjne, zebrane w krotkę,</li>
+        <li><code>**kwargs</code>: nadmiarowe argumenty nazwane, zebrane w słownik.</li>
+      </ul>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">def describe(name, *args, unit="szt.", **kwargs):
+    print(name, args, unit, kwargs)
+
+describe("T7", 3, 5, unit="kg", shop=12)</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>T7 (3, 5) kg {'shop': 12}</code><span class="why">Tak. Nadmiarowe pozycyjne trafiają do krotki, nieznane nazwane do słownika. <code>unit</code> stoi po <code>*args</code>, więc da się go podać tylko po nazwie.</span></li>
+          <li><code>T7 [3, 5] kg {'shop': 12}</code><span class="why"><code>*args</code> zbiera argumenty w krotkę, nie w listę.</span></li>
+          <li><code>TypeError</code><span class="why">Funkcja przyjmie każdą liczbę argumentów pozycyjnych i nazwanych. Po to są <code>*args</code> i <code>**kwargs</code>.</span></li>
+        </ul>
+      </div>
+
+      <p>Sama gwiazdka w sygnaturze, bez nazwy, oznacza: wszystko dalej podajesz po nazwie. To dobra obrona przed wywołaniem, którego nie da się przeczytać, jak <code>top(stats, 5, True)</code>.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">def top(stats, *, n=5):
+    return stats[:n]
+
+print(top([4, 3, 2, 1], 2))</code></pre>
+        <ul class="quiz-options">
+          <li><code>[4, 3]</code><span class="why">Tak by było bez gwiazdki. Z nią <code>n</code> da się podać tylko jako <code>n=2</code>.</span></li>
+          <li><code>[4, 3, 2, 1]</code><span class="why">Python nie ignoruje nadmiarowych argumentów. Zgłasza błąd.</span></li>
+          <li data-correct><code>TypeError</code><span class="why">Tak. Funkcja przyjmuje jeden argument pozycyjny, a dostała dwa. Poprawne wywołanie to <code>top([4, 3, 2, 1], n=2)</code>.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Funkcja czysta</strong> zależy tylko od swoich argumentów i nie zmienia niczego poza swoim wynikiem: nie dopisuje do list, które dostała, nie zmienia zmiennych globalnych, nie pisze do plików. Taką funkcję testujesz jednym wywołaniem i możesz wywołać drugi raz bez obaw. Kod z efektami ubocznymi też jest potrzebny, bo ktoś musi zapisać wynik na dysk. Trzymaj go jednak na brzegach programu, a środek niech liczy.</p>
+    </section>
+
+    <section id="funkcje-jako-wartosci">
+      <h2>Funkcje to też wartości</h2>
+
+      <p>Funkcję można przypisać do zmiennej, włożyć do słownika, przekazać jako argument. Funkcja, która przyjmuje albo zwraca inną funkcję, to <strong>funkcja wyższego rzędu</strong>. Znasz już jedną: <code>sorted</code> przyjmuje w <code>key</code> funkcję, która mówi, po czym sortować.</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">rows = [("T2", 9.0), ("T1", 5.0), ("T3", 9.0)]
+print(sorted(rows, key=lambda row: (-row[1], row[0])))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>[('T2', 9.0), ('T3', 9.0), ('T1', 5.0)]</code><span class="why">Tak. Klucz to krotka: najpierw minus wartość, czyli malejąco, potem nazwa rosnąco. Remis 9.0 rozstrzyga nazwa.</span></li>
+          <li><code>[('T3', 9.0), ('T2', 9.0), ('T1', 5.0)]</code><span class="why">Tak wyszłoby z <code>reverse=True</code> na kluczu <code>(row[1], row[0])</code>. Odwrócenie dotyczy wtedy obu pól, także nazwy.</span></li>
+          <li><code>[('T1', 5.0), ('T2', 9.0), ('T3', 9.0)]</code><span class="why">Minus przed wartością odwraca kolejność: większe wartości dają mniejszy klucz.</span></li>
+        </ul>
+      </div>
+
+      <p><code>lambda</code> to funkcja w jednym wyrażeniu, bez nazwy. Pasuje do krótkiego klucza sortowania. Gdy ma więcej niż jedną myśl, napisz zwykłą funkcję z nazwą, bo nazwa też jest dokumentacją.</p>
+
+      <p><code>map</code> i <code>filter</code> też przyjmują funkcje. W Pythonie zwykle czytelniej jest napisać comprehension: <code>[f(x) for x in xs if ok(x)]</code> mówi to samo w jednym miejscu.</p>
+    </section>
+
+    <section id="domkniecia">
+      <h2>Domknięcia</h2>
+
+      <p>Funkcja zdefiniowana w innej funkcji widzi jej zmienne, także wtedy, gdy zewnętrzna funkcja już się skończyła. Taka para, czyli funkcja i zmienne, które zapamiętała, to <strong>domknięcie</strong> (closure).</p>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">def make_counter():
+    count = 0
+    def step():
+        nonlocal count
+        count += 1
+        return count
+    return step
+
+a = make_counter()
+b = make_counter()
+a(); a()
+print(a(), b())</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>3 1</code><span class="why">Tak. Każde wywołanie <code>make_counter</code> tworzy nową zmienną <code>count</code>. <code>a</code> i <code>b</code> mają osobne liczniki.</span></li>
+          <li><code>3 4</code><span class="why">Tak by było, gdyby licznik był wspólny, na przykład globalny. Tu każde wywołanie <code>make_counter</code> ma własny.</span></li>
+          <li><code>1 1</code><span class="why"><code>count</code> nie znika po zakończeniu <code>make_counter</code>. Pamięta go funkcja <code>step</code>.</span></li>
+        </ul>
+      </div>
+
+      <p><code>nonlocal</code> jest potrzebne tylko do <em>przypisania</em> zmiennej z zewnętrznej funkcji. Do odczytu wystarczy samo użycie nazwy.</p>
+
+      <p>Domknięcie pamięta <strong>zmienną</strong>, a nie jej wartość z chwili utworzenia. Zwykle to nie ma znaczenia, ale w pętli ma:</p>
+
+      <div class="predict" id="p5" data-type="single">
+<pre><code class="language-python">tests = [lambda x: x >= t for t in (1, 5, 10)]
+print([test(7) for test in tests])</code></pre>
+        <ul class="quiz-options">
+          <li><code>[True, True, False]</code><span class="why">Tego chciał autor. Ale wszystkie trzy lambdy patrzą na tę samą zmienną <code>t</code>, a ta po pętli ma wartość 10.</span></li>
+          <li data-correct><code>[False, False, False]</code><span class="why">Tak. Lambdy odczytują <code>t</code> dopiero przy wywołaniu, a wtedy <code>t</code> jest równe 10. Każda sprawdza <code>7 >= 10</code>.</span></li>
+          <li><code>[True, True, True]</code><span class="why">Progi nie są równe 1. Zmienna <code>t</code> kończy pętlę z ostatnią wartością.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p>Funkcje tworzone w pętli widzą ostatnią wartość zmiennej pętli. Rozwiązanie: fabryka, czyli funkcja, która dostaje próg jako argument i zwraca test. Każde wywołanie fabryki ma własną zmienną. W labie napiszesz taką fabrykę: <code>at_least(key, threshold)</code>.</p>
+      </div>
+    </section>
+
+    <section id="dekoratory">
+      <h2>Dekoratory</h2>
+
+      <p>Dekorator to funkcja, która dostaje funkcję i zwraca nową, zwykle opakowującą starą. Zapis z <code>@</code> to skrót:</p>
+
+<pre><code class="language-python">@timed
+def load_all(path): ...
+
+# znaczy dokładnie to samo co:
+def load_all(path): ...
+load_all = timed(load_all)</code></pre>
+
+      <p>Dekoratorem dodajesz zachowanie, które powtarza się w wielu funkcjach i nie należy do żadnej z nich: pomiar czasu, logowanie, ponawianie, walidację, rejestrację. Typowy kształt:</p>
+
+<pre><code class="language-python">import functools
+
+def logged(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"calling {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper</code></pre>
+
+      <p><code>wrapper</code> przyjmuje <code>*args, **kwargs</code> i przekazuje je dalej, więc pasuje do każdej funkcji. <code>functools.wraps</code> kopiuje na opakowanie nazwę i docstring oryginału. Bez niego każda udekorowana funkcja nazywa się <code>wrapper</code>, a <code>help()</code>, logi i komunikaty błędów pokazują nie tę nazwę.</p>
+
+      <p>Kilka dekoratorów nad jedną funkcją nakłada się od dołu: ten najbliżej <code>def</code> działa pierwszy.</p>
+
+      <div class="predict" id="p6" data-type="single">
+<pre><code class="language-python">def exclaim(func):
+    def wrapper():
+        return func() + "!"
+    return wrapper
+
+def double(func):
+    def wrapper():
+        return func() * 2
+    return wrapper
+
+@double
+@exclaim
+def greet():
+    return "hej"
+
+print(greet(), greet.__name__)</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>hej!hej! wrapper</code><span class="why">Tak. <code>greet = double(exclaim(greet))</code>: najpierw wykrzyknik, potem podwojenie. Bez <code>functools.wraps</code> nazwa to <code>wrapper</code>.</span></li>
+          <li><code>hejhej! wrapper</code><span class="why">To kolejność odwrotna: <code>exclaim(double(greet))</code>. Dekoratory nakładają się od dołu.</span></li>
+          <li><code>hej!hej! greet</code><span class="why">Kolejność się zgadza, ale żaden z dekoratorów nie użył <code>functools.wraps</code>, więc nazwa przepadła.</span></li>
+        </ul>
+      </div>
+
+      <h3>Dekorator z parametrem</h3>
+
+      <p>Dekorator z parametrem, jak <code>@requires_history(12)</code>, to <strong>fabryka dekoratorów</strong>: funkcja, która przyjmuje parametr i zwraca dekorator. Stąd trzy poziomy zagnieżdżenia:</p>
+
+<pre><code class="language-python">def repeat(times):              # fabryka: dostaje parametr
+    if times &lt; 1:
+        raise ValueError(f"times must be at least 1, got {times}")
+
+    def decorator(func):        # dekorator: dostaje funkcję
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):   # opakowanie: dostaje argumenty
+            for _ in range(times - 1):
+                func(*args, **kwargs)
+            return func(*args, **kwargs)
+        return wrapper
+
+    return decorator</code></pre>
+
+      <p>Każdy poziom działa w innym momencie. Fabryka działa raz, przy definicji udekorowanej funkcji. Dlatego walidacja parametru stoi w niej: błąd wychodzi przy imporcie modułu, a nie w połowie nocnego przeliczenia.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Dekorator <code>register(name)</code> zapisuje funkcję w słowniku i zwraca ją bez zmian. Czy potrzebuje <code>functools.wraps</code>?</div>
+        <ul class="quiz-options">
+          <li>Tak, każdy dekorator potrzebuje <code>wraps</code>.<span class="why"><code>wraps</code> przenosi nazwę z oryginału na opakowanie. Tu opakowania nie ma.</span></li>
+          <li data-correct>Nie, bo zwraca tę samą funkcję, a nie nową.<span class="why">Tak. Funkcja wychodzi z dekoratora nietknięta, z własną nazwą i docstringiem.</span></li>
+          <li>Nie, bo ma parametr.<span class="why">Parametr nie ma tu znaczenia. <code>@requires_history(12)</code> też ma parametr i <code>wraps</code> potrzebuje, bo tworzy opakowanie.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="moduly">
+      <h2>Moduły i importy</h2>
+
+      <p>Każdy plik <code>.py</code> to <strong>moduł</strong>. <code>import carparts</code> szuka pliku <code>carparts.py</code> w katalogach z listy <code>sys.path</code>. Pierwszy na liście jest katalog skryptu albo notebooka. Potem Python wykonuje plik od góry do dołu i zapamiętuje wynik w <code>sys.modules</code>. Kolejny <code>import carparts</code> w tym samym procesie niczego nie wykonuje, tylko zwraca zapamiętany moduł.</p>
+
+      <p>Dlatego zmiana w pliku nie dociera do notebooka, dopóki nie zrestartujesz kernela. W labie użyjesz <code>%autoreload 2</code>, które przeładowuje zmienione moduły przed każdą komórką.</p>
+
+      <p>Dwa zapisy importu:</p>
+      <ul>
+        <li><code>import carparts</code> i potem <code>carparts.parse_value(...)</code>: w miejscu użycia widać, skąd funkcja pochodzi,</li>
+        <li><code>from carparts import parse_value</code>: krócej, ale <code>autoreload</code> i czytelnik mają mniej informacji.</li>
+      </ul>
+      <p>W kursie importy są absolutne i stoją na górze pliku (reguła K6 w <code>docs/standard.md</code>).</p>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Plik <code>carparts.py</code> ma na górze <code>print("ładuję")</code>. W notebooku bez autoreload uruchamiasz komórkę z <code>import carparts</code> trzy razy. Ile razy zobaczysz "ładuję"?</div>
+        <ul class="quiz-options">
+          <li data-correct>Raz.<span class="why">Tak. Drugi i trzeci import biorą moduł z <code>sys.modules</code> i nie wykonują pliku.</span></li>
+          <li>Trzy razy.<span class="why">Import wykonuje plik tylko przy pierwszym imporcie w danym procesie.</span></li>
+          <li>Ani razu, bo import nie wykonuje kodu.<span class="why">Wykonuje, cały plik, od góry. Dlatego na poziomie modułu stawia się tylko definicje i stałe.</span></li>
+        </ul>
+      </div>
+
+      <p>Kod, który ma działać tylko przy uruchomieniu pliku jako skryptu, a nie przy imporcie, stawia się pod <code>if __name__ == "__main__":</code>. Przy imporcie <code>__name__</code> to nazwa modułu, przy uruchomieniu <code>python carparts.py</code> to <code>"__main__"</code>.</p>
+    </section>
+
+    <section id="typy">
+      <h2>Typy</h2>
+
+      <p>Adnotacja typu mówi, jakiego rodzaju wartości funkcja przyjmuje i zwraca:</p>
+
+<pre><code class="language-python">def parse_value(text: str) -> float | None:</code></pre>
+
+      <p>Python sam z adnotacji nie korzysta. Sprawdza je osobne narzędzie, <code>mypy</code>, które czyta kod bez uruchamiania go.</p>
+
+      <div class="predict" id="p7" data-type="single">
+<pre><code class="language-python">def total(values: list[float]) -> float:
+    return sum(values)
+
+print(total((1, 2, 3)))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>6</code><span class="why">Tak. Adnotacje nie zmieniają działania programu. Krotka liczb całkowitych przechodzi, a <code>sum</code> zwraca liczbę całkowitą 6.</span></li>
+          <li><code>6.0</code><span class="why">Adnotacja <code>-> float</code> niczego nie zamienia. <code>sum</code> liczb całkowitych daje liczbę całkowitą.</span></li>
+          <li><code>TypeError</code><span class="why">Python nie sprawdza typów przy wywołaniu. Ten błąd zgłosi dopiero <code>mypy</code>, i to przed uruchomieniem.</span></li>
+        </ul>
+      </div>
+
+      <p>Po co więc typy? Po to, żeby błąd wyszedł na biurku, a nie w danych. Ten sam plik w <code>mypy</code>:</p>
+
+<pre><code class="language-text">$ uv run mypy --strict stats.py
+stats.py:4: error: Argument 1 to "total" has incompatible type "tuple[int, int, int]"; expected "list[float]"  [arg-type]</code></pre>
+
+      <p>Liczby całkowite <code>mypy</code> przyjmuje tam, gdzie spodziewa się <code>float</code>. Krotki zamiast listy nie przyjmuje. Tu ma rację tylko formalnie, bo <code>total</code> jedynie czyta wartości, więc krotka by wystarczyła. Lepsza adnotacja mówi dokładnie tyle, ile funkcja potrzebuje: <code>Sequence[float]</code>.</p>
+
+      <table>
+        <thead><tr><th>Zapis</th><th>Znaczy</th></tr></thead>
+        <tbody>
+          <tr><td><code>float | None</code></td><td>liczba albo brak</td></tr>
+          <tr><td><code>list[float]</code></td><td>lista liczb, którą funkcja może zmieniać</td></tr>
+          <tr><td><code>Sequence[float]</code></td><td>cokolwiek z długością i indeksem, tylko do odczytu: lista, krotka</td></tr>
+          <tr><td><code>Mapping[str, float]</code></td><td>słownik tylko do odczytu</td></tr>
+          <tr><td><code>Iterator[str]</code></td><td>generator albo inny iterator napisów</td></tr>
+          <tr><td><code>Callable[[str], float]</code></td><td>funkcja z jednym argumentem <code>str</code>, zwracająca <code>float</code></td></tr>
+          <tr><td><code>tuple[str, int]</code></td><td>krotka dokładnie dwóch pól</td></tr>
+        </tbody>
+      </table>
+
+      <p><code>Sequence</code>, <code>Mapping</code>, <code>Iterator</code> i <code>Callable</code> importujesz z <code>collections.abc</code>. Zasada: parametry typuj szeroko (czego funkcja potrzebuje), wynik wąsko (co dokładnie zwraca).</p>
+
+      <p>Długi typ, który się powtarza, dostaje nazwę:</p>
+
+<pre><code class="language-python">type Values = Sequence[float | None]
+type Stats = dict[str, float | None]
+
+def demand_stats(values: Values) -> Stats: ...</code></pre>
+
+      <h3>Zawężanie</h3>
+
+      <p><code>mypy</code> śledzi warunki. Po <code>if value is not None:</code> wie, że <code>value</code> to już <code>float</code>. Zawęża jednak <em>nazwę</em>, a nie każde wyrażenie:</p>
+
+<pre><code class="language-python">def top(stats: dict[str, dict[str, float | None]], key: str) -> list[float]:
+    return [row[key] for row in stats.values() if row[key] is not None]</code></pre>
+
+<pre><code class="language-text">stats.py:2: error: List comprehension has incompatible type List[float | None]; expected List[float]  [misc]</code></pre>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Dlaczego <code>mypy</code> odrzuca tę funkcję, skoro warunek wyklucza <code>None</code>?</div>
+        <ul class="quiz-options">
+          <li>Bo comprehensions nie wspierają zawężania.<span class="why">Wspierają. <code>[v for v in xs if v is not None]</code> przechodzi bez uwag.</span></li>
+          <li data-correct>Bo <code>row[key]</code> jest liczone dwa razy, a <code>mypy</code> nie zakłada, że oba razy da to samo.<span class="why">Tak. Zawężenie dotyczy zmiennej. Zapisz wartość w nazwie: <code>if (value := row[key]) is not None</code> i zwracaj <code>value</code>.</span></li>
+          <li>Bo brakuje adnotacji zmiennej <code>row</code>.<span class="why"><code>mypy</code> sam wie, że <code>row</code> to <code>dict[str, float | None]</code>, z typu <code>stats</code>.</span></li>
+        </ul>
+      </div>
+
+      <h3>Typ dekoratora</h3>
+
+      <p>Dekorator zwraca nową funkcję. Jeśli napiszesz, że zwraca <code>Callable[..., Any]</code>, każda udekorowana funkcja straci typy. Żeby powiedzieć "opakowanie ma te same argumenty i wynik co oryginał", sygnaturę parametryzuje się typami argumentów <code>P</code> i wyniku <code>R</code>:</p>
+
+<pre><code class="language-python">def timed[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        ...</code></pre>
+
+      <p>Ten zapis wystarczy rozpoznać i przepisać. W labie sygnatura czeka gotowa.</p>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Od tego modułu każda funkcja ma typy argumentów i wyniku, a <code>mypy</code> przechodzi bez błędów (K1). To reguła blokująca w review.</p>
+      </div>
+    </section>
+
+    <section id="ruff">
+      <h2>ruff i docstringi</h2>
+
+      <p><code>ruff</code> robi dwie rzeczy. <code>ruff check</code> szuka błędów i złych wzorców, <code>ruff format</code> układa kod w jednolity styl. Oba muszą przejść przed każdym commitem (K9). Przykład:</p>
+
+<pre><code class="language-python">import json
+
+
+def add_sale(sale, history=[]):
+    if sale == None:
+        return history
+    history.append(sale)
+    return history</code></pre>
+
+<pre><code class="language-text">$ uv run ruff check clean.py
+clean.py:1:8: F401 [*] `json` imported but unused
+clean.py:4:28: B006 Do not use mutable data structures for argument defaults
+clean.py:5:16: E711 Comparison to `None` should be `cond is None`</code></pre>
+
+      <p>Każda uwaga ma kod. Litera mówi, z jakiego zestawu reguł pochodzi: <code>F</code> to błędy (nieużyty import, nieznana nazwa), <code>B</code> to typowe pułapki, <code>E</code> i <code>W</code> to styl. Nieznany kod sprawdzisz poleceniem <code>uv run ruff rule B006</code>. Gwiazdka <code>[*]</code> oznacza, że <code>ruff check --fix</code> naprawi to sam.</p>
+
+      <p><code>mypy --strict</code> ma do tego pliku jeszcze jedną uwagę: funkcja nie ma typów. Oba narzędzia się uzupełniają: <code>ruff</code> patrzy na wzorce, <code>mypy</code> na typy.</p>
+
+      <h3>Docstring</h3>
+
+      <p>Docstring to napis zaraz pod <code>def</code>. Mówi, co funkcja robi i zwraca, a przy dłuższych funkcjach także co przyjmuje i co rzuca. Kurs używa stylu Google (K2):</p>
+
+<pre><code class="language-python">def summarise(values: Values, names: Sequence[str] | None = None) -> Stats:
+    """Compute the registered statistics `names` (all when None) for one series.
+
+    Raises:
+        ValueError: A name is not registered. The message lists the known ones.
+    """</code></pre>
+
+      <p>Docstring opisuje zachowanie z punktu widzenia wywołującego, a nie implementację. "Sums the known values" jest dobre. "Loops over values and adds them" mówi to, co widać w kodzie.</p>
+    </section>
+
+    <section id="style">
+      <h2>Trzy style, jeden problem</h2>
+
+      <p>Ten sam problem da się zapisać na kilka sposobów. Zadanie: udział zer wśród znanych miesięcy dla każdej serii.</p>
+
+      <div class="tabs" data-group="style">
+        <div class="segmented" role="group" aria-label="Styl kodu">
+          <button type="button" data-tab="imperative" aria-pressed="true">Imperatywny</button>
+          <button type="button" data-tab="functional" aria-pressed="false">Funkcyjny</button>
+          <button type="button" data-tab="object" aria-pressed="false">Obiektowy</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-group="style" data-tab="imperative">
+<pre><code class="language-python">zero_share = {}
+for name, values in series.items():
+    known = 0
+    zeros = 0
+    for value in values:
+        if value is not None:
+            known += 1
+            if value == 0:
+                zeros += 1
+    zero_share[name] = zeros / known if known else None</code></pre>
+        <p>Krok po kroku, ze zmiennymi, które się zmieniają. Łatwo prześledzić w debuggerze. Trudno użyć ponownie: logika jednej serii siedzi w środku pętli po wszystkich.</p>
+      </div>
+
+      <div class="tab-panel" data-group="style" data-tab="functional" hidden>
+<pre><code class="language-python">def share_of_zeros(values: Values) -> float | None:
+    known = [v for v in values if v is not None]
+    return sum(v == 0 for v in known) / len(known) if known else None
+
+
+zero_share = {name: share_of_zeros(values) for name, values in series.items()}</code></pre>
+        <p>Mała funkcja czysta dla jednej serii i comprehension, która ją stosuje. Funkcję przetestujesz osobno, a dołożenie następnej statystyki nie dotyka tej. Tak piszesz większość kodu z danymi.</p>
+      </div>
+
+      <div class="tab-panel" data-group="style" data-tab="object" hidden>
+<pre><code class="language-python">class DemandSeries:
+    def __init__(self, name: str, values: list[float | None]) -> None:
+        self.name = name
+        self.values = values
+
+    def known(self) -> list[float]:
+        return [v for v in self.values if v is not None]
+
+    def zero_share(self) -> float | None:
+        known = self.known()
+        return sum(v == 0 for v in known) / len(known) if known else None
+
+
+zero_share = {s.name: s.zero_share() for s in all_series}</code></pre>
+        <p>Dane i operacje na nich w jednym miejscu. Opłaca się, gdy obiekt ma stan, który trzeba chronić, albo kilka wymiennych implementacji jednej umowy, na przykład kilka modeli prognozy. O tym jest moduł 03.</p>
+      </div>
+
+      <p>Żaden styl nie jest "ten dobry". W jednym pliku zobaczysz wszystkie trzy. Domyślnie w kodzie z danymi pisz małe funkcje czyste, klasy wprowadzaj, gdy mają powód, a pętlę ze stanem zostaw tam, gdzie krok po kroku znaczy najjaśniej.</p>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">Masz sześć statystyk w jednej funkcji <code>demand_stats</code> i chcesz dodać siódmą. W wersji z rejestrem (dekorator <code>@register</code>) dopisujesz nową funkcję. Co jest główną korzyścią?</div>
+        <ul class="quiz-options">
+          <li>Kod działa szybciej.<span class="why">Szybkość jest ta sama albo trochę gorsza: wywołań funkcji jest więcej.</span></li>
+          <li data-correct>Nowa statystyka nie wymaga zmiany istniejącego, przetestowanego kodu.<span class="why">Tak. Dodajesz, zamiast edytować. Każdą statystykę testujesz osobno.</span></li>
+          <li>Nie trzeba już pisać testów.<span class="why">Testy są dalej potrzebne. Są tylko mniejsze i prostsze.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Licznik wywołań</h3>
+
+      <p>Napisz dekorator <code>counted</code>. Opakowana funkcja działa jak oryginał, a w atrybucie <code>calls</code> trzyma liczbę swoich wywołań. Każda udekorowana funkcja ma własny licznik. Nazwa i docstring mają zostać.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import functools
+
+
+def counted(func):
+    """Count the calls of `func` in the attribute `calls` of the wrapper."""
+    ...
+
+
+@counted
+def parse(text):
+    """Parse a number."""
+    return float(text)
+
+
+parse("1")
+parse("2")
+print(parse.calls, parse.__name__)
+</script>
+        <script type="text/x-python" data-role="test">
+@counted
+def _scaled(x, *, factor=2):
+    """Doc."""
+    return x * factor
+assert _scaled(3) == 6 and _scaled(3, factor=3) == 9, "Opakowana funkcja ma przekazać *args i **kwargs i zwrócić wynik oryginału."
+assert getattr(_scaled, "calls", None) == 2, f"Po dwóch wywołaniach calls ma być 2, a jest {getattr(_scaled, 'calls', None)}."
+assert _scaled.__name__ == "_scaled" and _scaled.__doc__ == "Doc.", "Opakowanie zgubiło nazwę albo docstring. Użyj functools.wraps."
+@counted
+def _other():
+    return 1
+assert _other.calls == 0, "Nowa udekorowana funkcja ma licznik 0: każda liczy osobno."
+</script>
+      </div>
+
+      <h3>Test przedziału</h3>
+
+      <p>Napisz fabrykę <code>between(low, high)</code>. Zwraca funkcję, która dla wartości mówi, czy jest znana i leży w przedziale od <code>low</code> do <code>high</code>, z końcami.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+def between(low, high):
+    """Return a test: is a value known and low <= value <= high?"""
+    ...
+
+
+is_regular = between(0, 1.32)
+print(is_regular(1.0), is_regular(4.0), is_regular(None))
+</script>
+        <script type="text/x-python" data-role="test">
+_t = between(1, 3)
+assert callable(_t), "between ma zwrócić funkcję."
+assert [_t(1), _t(2.5), _t(3), _t(0.9), _t(3.1)] == [True, True, True, False, False], "Końce przedziału się liczą, wartości spoza nie."
+assert _t(None) is False, "None nie leży w żadnym przedziale: wynik False, bez błędu."
+_tests = [between(k, k + 1) for k in range(3)]
+assert [_x(0.5) for _x in _tests] == [True, False, False], "Każdy test pamięta własne granice."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Przeniesiesz funkcje z labu 01 do modułu <code>carparts.py</code>, dasz im typy i doprowadzisz do zera uwag <code>ruff</code> i <code>mypy --strict</code>. Potem dopiszesz dekoratory <code>timed</code> i <code>requires_history</code>, rejestr statystyk i filtry z domknięć. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/02-functions/02-functions.ipynb</code> w VS Code, a obok plik <code>labs/02-functions/carparts.py</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

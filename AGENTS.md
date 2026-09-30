@@ -50,7 +50,9 @@ Reference code lives on the `solutions` branch. It is the learner's to open, not
 | Path | What it gives you |
 |---|---|
 | `lectures/NN-*/index.html` | what the learner has been taught, and in which words |
-| `labs/NN-*/` | the lab notebook and its README |
+| `labs/NN-*/` | the lab notebook and its README. Labs 01-03 are solved in the notebook (01) or in a module next to it (`labs/02-functions/carparts.py`, `labs/03-classes/demand.py`); from module 14 on the README is a board of tickets with acceptance criteria and hints, and the notebook only runs the pipeline and holds the report |
+| `shelfwise/` | module 17's inherited codebase, with its own README, tests and `tickets/` |
+| `reports/capstone.md` | the capstone report (module 19), written from `labs/19-capstone/report-template.md` |
 | `src/freshcast/` | the package the learner builds; each docstring is a task specification |
 | `src/coursekit/checks/mNN.py` | what each check verifies, on which input, with which message |
 | `src/coursekit/fixtures/` | the small sample the checks run on |
@@ -58,7 +60,9 @@ Reference code lives on the `solutions` branch. It is the learner's to open, not
 | `docs/standard.md` | the engineering standard used in reviews |
 | `.course/` | local state: `config.toml` (data profile), `progress.json`, `progress.md`, `backup/` |
 
-Course commands: `uv run course doctor`, `check [07|07.2]`, `profile [small|standard|full]`, `data`. `uv run course catchup NN` writes reference code into the learner's package, so it is theirs to run.
+Course commands: `uv run course doctor`, `check [07|07.2]`, `profile [small|standard|full]`, `data`. `uv run course catchup NN` writes reference code into the learner's package and lab modules (not into notebooks), so it is theirs to run.
+
+Tasks solved inside a notebook (labs 01-03, and 05.6-05.7) are checked there: `check("02.3", carparts.requires_history)` passes the learner's object to the check. `uv run course check` lists them as not started with the note "sprawdzasz w notebooku"; that is expected.
 
 ## Progress notes
 

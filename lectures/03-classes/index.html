@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>03 · Klasy | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="03">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">03 · Klasy</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 03 · Część 1: inżynieria w Pythonie</p>
+    <h1>Klasy</h1>
+    <p class="lede">Klasa łączy dane z regułami, które te dane muszą spełniać, i z operacjami na nich. Dobrze użyta sprawia, że niepoprawny obiekt w ogóle nie powstaje. Źle użyta zamienia trzy linijki funkcji w trzydzieści linijek ceremonii.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduły 01 i 02</li>
+      <li><b>Potem:</b> <a href="../../labs/03-classes/README.md">lab 03</a>, około 6 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>napisać klasę z <code>__init__</code>, atrybutami i metodami i wiedzieć, czym jest <code>self</code>,</li>
+      <li>zastąpić ręcznie pisaną klasę danych przez <code>@dataclass</code>, także zamrożony,</li>
+      <li>używać właściwości i metod klasy,</li>
+      <li>zbudować rodzinę klas ze wspólną umową: dziedziczenie, <code>ABC</code>, <code>Protocol</code>,</li>
+      <li>nazwać skończony zbiór wartości przez <code>StrEnum</code> i rozgałęziać kod przez <code>match</code>,</li>
+      <li>ocenić, kiedy klasa jest zbędna.</li>
+    </ul>
+
+    <section id="klasa">
+      <h2>Klasa, obiekt, self</h2>
+
+      <p>Klasa to przepis na obiekty. Obiekt (instancja) ma własne atrybuty, a metody klasy działają na nich:</p>
+
+<pre><code class="language-python">class Stock:
+    def __init__(self, part: str, units: int) -> None:
+        self.part = part
+        self.units = units
+
+    def take(self, count: int) -> None:
+        if count > self.units:
+            raise ValueError(f"Only {self.units} units of {self.part} left.")
+        self.units -= count
+
+
+oil = Stock("olej", 5)
+oil.take(2)</code></pre>
+
+      <p><code>oil.take(2)</code> to w istocie <code>Stock.take(oil, 2)</code>. <code>self</code> to po prostu pierwszy argument metody: obiekt, na którym ją wywołano. <code>__init__</code> ustawia atrybuty nowego obiektu. Nie tworzy go i niczego nie zwraca.</p>
+
+      <p>Atrybut ustawiony przez <code>self.x = ...</code> należy do obiektu. Atrybut zapisany w ciele klasy należy do klasy i jest wspólny dla wszystkich obiektów:</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">class Basket:
+    items = []
+
+    def add(self, item):
+        self.items.append(item)
+
+a = Basket()
+b = Basket()
+a.add("olej")
+print(b.items)</code></pre>
+        <ul class="quiz-options">
+          <li><code>[]</code><span class="why">Tak by było, gdyby każdy koszyk miał własną listę. Tu lista powstała raz, przy definicji klasy.</span></li>
+          <li data-correct><code>['olej']</code><span class="why">Tak. <code>items</code> to atrybut klasy, jedna lista dla wszystkich koszyków. To ta sama pułapka co domyślny argument <code>[]</code> z modułu 01.</span></li>
+          <li><code>AttributeError</code><span class="why">Obiekt, który nie ma własnego atrybutu, szuka go w klasie. <code>b.items</code> znajduje listę klasy.</span></li>
+        </ul>
+      </div>
+
+      <p>Stan obiektu ustawiaj w <code>__init__</code>. W ciele klasy trzymaj tylko stałe.</p>
+    </section>
+
+    <section id="dataclass">
+      <h2>dataclass</h2>
+
+      <p>Wiele klas to po prostu nazwane zestawy pól. Pisanie dla nich <code>__init__</code>, <code>__repr__</code> i <code>__eq__</code> ręcznie jest nudne i łatwo o błąd. Dekorator <code>@dataclass</code> robi to z listy pól:</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">from dataclasses import dataclass
+
+@dataclass
+class Part:
+    name: str
+    price: float
+
+print(Part("filtr", 20.0) == Part("filtr", 20.0), Part("filtr", 20.0))</code></pre>
+        <ul class="quiz-options">
+          <li><code>False &lt;__main__.Part object at 0x...&gt;</code><span class="why">Tak zachowuje się zwykła klasa: porównuje tożsamość i wypisuje adres. <code>@dataclass</code> dopisuje porównanie pól i czytelny opis.</span></li>
+          <li data-correct><code>True Part(name='filtr', price=20.0)</code><span class="why">Tak. Dwa obiekty z równymi polami są równe, a <code>print</code> pokazuje nazwę klasy i pola.</span></li>
+          <li><code>True filtr 20.0</code><span class="why">Wygenerowany <code>__repr__</code> pokazuje też nazwę klasy i nazwy pól.</span></li>
+        </ul>
+      </div>
+
+      <p>Adnotacje typów w ciele klasy są tu obowiązkowe: z nich <code>@dataclass</code> wie, jakie są pola. Pole z wartością domyślną będącą listą zapisujesz jako <code>field(default_factory=list)</code>, bo zwykłe <code>= []</code> byłoby wspólne dla wszystkich obiektów (dataclass na to nie pozwoli).</p>
+
+      <h3>Walidacja i zamrożenie</h3>
+
+      <p>Własne sprawdzenia dopisujesz w <code>__post_init__</code>, które dataclass wywołuje na końcu wygenerowanego <code>__init__</code>. Obiekt z błędnymi danymi wtedy nie powstaje.</p>
+
+      <p><code>@dataclass(frozen=True)</code> blokuje przypisanie do pól po utworzeniu. Taki obiekt jest bezpieczny do przekazywania: nikt go po drodze nie zmieni. Dostaje też <code>__hash__</code>, więc może być kluczem słownika albo elementem zbioru. Zamrożenie dotyczy jednak tylko pól:</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Series:
+    name: str
+    values: list
+
+s = Series("A", [1, 2])
+s.values.append(3)
+print(s.values)</code></pre>
+        <ul class="quiz-options">
+          <li><code>FrozenInstanceError</code><span class="why">Ten błąd pojawia się przy przypisaniu <code>s.values = ...</code>. <code>append</code> nie przypisuje pola, tylko zmienia listę, na którą pole wskazuje.</span></li>
+          <li><code>[1, 2]</code><span class="why">Lista jest zmienna niezależnie od tego, kto na nią wskazuje.</span></li>
+          <li data-correct><code>[1, 2, 3]</code><span class="why">Tak. Zamrożony obiekt nie pozwala podmienić listy, ale samą listę da się zmienić. Dlatego w labie <code>values</code> to krotka.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Obiekt z danymi, które nie powinny się zmieniać, to <code>@dataclass(frozen=True)</code> z polami niezmiennymi: <code>str</code>, liczby, <code>tuple</code>, <code>date</code>. Warunki, które dane muszą spełniać, sprawdza <code>__post_init__</code>.</p>
+      </div>
+    </section>
+
+    <section id="wlasciwosci">
+      <h2>Właściwości i metody klasy</h2>
+
+      <p><strong>Właściwość</strong> (<code>@property</code>) to metoda, którą czytasz jak atrybut, bez nawiasów. Nadaje się do wartości wyliczanych z pól: <code>series.adi</code> zamiast osobnego pola, które ktoś musiałby aktualizować.</p>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">class Stock:
+    def __init__(self, units):
+        self.units = units
+
+    @property
+    def empty(self):
+        return self.units == 0
+
+s = Stock(3)
+s.units = 0
+print(s.empty)</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>True</code><span class="why">Tak. Właściwość liczy się przy każdym odczycie, więc widzi aktualne <code>units</code>.</span></li>
+          <li><code>False</code><span class="why">Tak by było, gdyby <code>empty</code> było polem ustawionym w <code>__init__</code>. Właściwość nie pamięta starej wartości.</span></li>
+          <li><code>&lt;bound method Stock.empty ...&gt;</code><span class="why">Tak wyglądałaby zwykła metoda odczytana bez nawiasów. <code>@property</code> wywołuje ją za Ciebie.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Metoda klasy</strong> (<code>@classmethod</code>) dostaje zamiast obiektu samą klasę, nazywaną <code>cls</code>. Typowe użycie to alternatywny konstruktor, czyli obiekt z innego formatu danych:</p>
+
+<pre><code class="language-python">@dataclass(frozen=True)
+class DemandSeries:
+    name: str
+    start: date
+    values: tuple[float | None, ...]
+
+    @classmethod
+    def from_record(cls, record: tuple[str, str, Sequence[float | None]]) -> Self:
+        name, start, values = record
+        return cls(name, date.fromisoformat(start), tuple(values))</code></pre>
+
+      <p>Dlaczego <code>cls(...)</code>, a nie <code>DemandSeries(...)</code>? Bo klasa pochodna, która odziedziczy <code>from_record</code>, dostanie obiekt swojej klasy, a nie bazowej. Stąd też typ wyniku <code>Self</code>.</p>
+
+      <p><code>@staticmethod</code> nie dostaje ani obiektu, ani klasy. To zwykła funkcja w przestrzeni nazw klasy. Zwykle lepiej zrobić z niej funkcję modułu.</p>
+    </section>
+
+    <section id="dziedziczenie">
+      <h2>Dziedziczenie i umowy</h2>
+
+      <p>Klasa pochodna dziedziczy metody klasy bazowej i może je nadpisać. Metoda bazowa, która wywołuje <code>self.cos()</code>, wywoła wersję klasy pochodnej:</p>
+
+      <div class="predict" id="p5" data-type="single">
+<pre><code class="language-python">class Forecaster:
+    def name(self):
+        return "base"
+
+    def describe(self):
+        return f"model {self.name()}"
+
+class Naive(Forecaster):
+    def name(self):
+        return "naive"
+
+print(Naive().describe())</code></pre>
+        <ul class="quiz-options">
+          <li><code>model base</code><span class="why"><code>describe</code> jest zdefiniowane w klasie bazowej, ale <code>self</code> to obiekt <code>Naive</code>, więc <code>self.name()</code> szuka najpierw w <code>Naive</code>.</span></li>
+          <li data-correct><code>model naive</code><span class="why">Tak. Na tym opiera się wzorzec z labu: klasa bazowa robi wspólną pracę i woła metodę, którą każda klasa pochodna implementuje po swojemu.</span></li>
+          <li><code>AttributeError</code><span class="why"><code>Naive</code> dziedziczy <code>describe</code> po <code>Forecaster</code>.</span></li>
+        </ul>
+      </div>
+
+      <p><code>super()</code> daje dostęp do wersji metody z klasy bazowej. Klasa pochodna z własnym <code>__init__</code> woła <code>super().__init__()</code>, żeby klasa bazowa ustawiła swoje atrybuty.</p>
+
+      <h3>Klasa abstrakcyjna</h3>
+
+      <p>Klasa bazowa, której obiektów nie chcesz tworzyć, dziedziczy po <code>ABC</code>. Metody, które klasy pochodne muszą napisać, oznaczasz <code>@abstractmethod</code>. Python nie pozwoli utworzyć obiektu klasy, która którejś z nich nie ma:</p>
+
+      <div class="predict" id="p6" data-type="single">
+<pre><code class="language-python">from abc import ABC, abstractmethod
+
+class Model(ABC):
+    @abstractmethod
+    def predict(self): ...
+
+class Broken(Model):
+    def fit(self):
+        return self
+
+Broken()</code></pre>
+        <ul class="quiz-options">
+          <li>Nic się nie dzieje<span class="why">Tak byłoby bez <code>ABC</code>. Wtedy błąd wyszedłby dopiero przy wywołaniu <code>predict</code>, może na produkcji.</span></li>
+          <li data-correct><code>TypeError</code><span class="why">Tak. <code>Broken</code> nie ma <code>predict</code>, więc jest dalej abstrakcyjna. Błąd wychodzi przy tworzeniu obiektu, najwcześniej jak się da.</span></li>
+          <li><code>NotImplementedError</code><span class="why">Ten wyjątek rzuca się ręcznie w metodzie, której nie napisano. <code>ABC</code> działa wcześniej, przy tworzeniu obiektu.</span></li>
+        </ul>
+      </div>
+
+      <p>W labie <code>LocalForecaster</code> ma dwie publiczne metody, <code>fit</code> i <code>predict</code>, które sprawdzają argumenty, i jedną abstrakcyjną, <code>_forecast</code>, która liczy. Każdy model pisze tylko <code>_forecast</code>, a walidacja jest w jednym miejscu. Podkreślnik na początku nazwy mówi: to szczegół implementacji, z zewnątrz tego nie wołaj.</p>
+
+      <h3>Protocol</h3>
+
+      <p>Dziedziczenie mówi: "jestem rodzajem X". Czasem potrzebujesz tylko: "umiem zrobić to i to". Funkcja oceniająca modele nie musi wiedzieć, po czym model dziedziczy. Wystarczy jej, że ma <code>fit</code> i <code>predict</code>. To opisuje <code>Protocol</code>:</p>
+
+<pre><code class="language-python">class Forecaster(Protocol):
+    def fit(self, history: Sequence[float]) -> Self: ...
+    def predict(self, horizon: int) -> list[float]: ...
+
+
+def evaluate(make_model: Callable[[], Forecaster], ...) -> float: ...</code></pre>
+
+      <p>Każda klasa z pasującymi metodami spełnia <code>Forecaster</code>, także klasa z cudzej biblioteki, która nigdy o nim nie słyszała. <code>mypy</code> sprawdza to, porównując metody. Python w czasie działania niczego nie sprawdza: to znane z Pythona "duck typing", tylko z kontrolą typów.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Chcesz, żeby <code>evaluate</code> przyjmowało też model z zewnętrznej biblioteki, która ma metody <code>fit</code> i <code>predict</code>, ale jej klas nie możesz zmienić. Jaki typ dajesz parametrowi?</div>
+        <ul class="quiz-options">
+          <li>Klasę bazową <code>LocalForecaster</code>.<span class="why">Klasa z biblioteki po niej nie dziedziczy, więc <code>mypy</code> ją odrzuci.</span></li>
+          <li data-correct><code>Protocol</code> z metodami <code>fit</code> i <code>predict</code>.<span class="why">Tak. Protocol sprawdza kształt obiektu, a nie jego pochodzenie.</span></li>
+          <li><code>Any</code>.<span class="why">Zadziała, ale <code>mypy</code> przestanie cokolwiek sprawdzać, także literówkę w <code>predcit</code>.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="enum-match">
+      <h2>StrEnum i match</h2>
+
+      <p>Typ popytu to jedna z kilku wartości: <code>"smooth"</code>, <code>"lumpy"</code> i tak dalej. Trzymanie ich jako luźnych napisów kończy się literówką <code>"lumpy "</code> w jednym miejscu kodu. <code>StrEnum</code> daje nazwany, zamknięty zbiór wartości, które nadal są napisami:</p>
+
+      <div class="predict" id="p7" data-type="single">
+<pre><code class="language-python">from enum import StrEnum
+
+class Kind(StrEnum):
+    SMOOTH = "smooth"
+    LUMPY = "lumpy"
+
+print(Kind("lumpy") is Kind.LUMPY, Kind.SMOOTH == "smooth", f"{Kind.LUMPY}")</code></pre>
+        <ul class="quiz-options">
+          <li><code>True True Kind.LUMPY</code><span class="why">Tak wypisałby zwykły <code>Enum</code>. <code>StrEnum</code> w napisie jest swoją wartością.</span></li>
+          <li data-correct><code>True True lumpy</code><span class="why">Tak. <code>Kind("lumpy")</code> zwraca istniejącego członka, porównanie z napisem działa, a w f-stringu członek to jego wartość. Dlatego <code>StrEnum</code> dobrze się zapisuje do plików i kolumn.</span></li>
+          <li><code>False True lumpy</code><span class="why">Członkowie wyliczenia istnieją w jednym egzemplarzu. <code>Kind("lumpy")</code> zwraca właśnie jego.</span></li>
+        </ul>
+      </div>
+
+      <p><code>match</code> dopasowuje wartość do kolejnych wzorców i wykonuje pierwszy pasujący. Wzorzec może rozpakować krotkę, sprawdzić stałą i mieć strażnika <code>if</code>:</p>
+
+      <div class="predict" id="p8" data-type="single">
+<pre><code class="language-python">def describe(record):
+    match record:
+        case (name, None):
+            return f"{name}: brak"
+        case (name, 0):
+            return f"{name}: zero"
+        case (name, value) if value > 10:
+            return f"{name}: dużo"
+        case _:
+            return "inne"
+
+print(describe(("T1", 0.0)), describe(("T2", 12)), describe(["T3", None]))</code></pre>
+        <ul class="quiz-options">
+          <li><code>inne T2: dużo inne</code><span class="why">Stałe we wzorcu porównuje się przez <code>==</code>, a <code>0 == 0.0</code>. Wzorzec krotki pasuje też do listy.</span></li>
+          <li data-correct><code>T1: zero T2: dużo T3: brak</code><span class="why">Tak. <code>0.0</code> pasuje do <code>0</code>, strażnik przepuszcza 12, a wzorzec sekwencji pasuje i do krotki, i do listy.</span></li>
+          <li><code>T1: zero T2: dużo inne</code><span class="why">Wzorzec <code>(name, None)</code> dopasowuje każdą dwuelementową sekwencję, także listę.</span></li>
+        </ul>
+      </div>
+
+      <p><code>match</code> nie jest szybszym <code>if</code>. Opłaca się, gdy rozgałęziasz według kształtu danych: kilku pól naraz, typu, długości. Dla jednego porównania <code>if</code> jest czytelniejszy.</p>
+    </section>
+
+    <section id="kiedy-nie">
+      <h2>Kiedy nie pisać klasy</h2>
+
+      <p>Klasa ma sens, gdy daje coś, czego funkcja nie da:</p>
+      <ul>
+        <li><strong>niezmiennik</strong>: dane, które muszą spełniać warunki, a obiekt pilnuje ich od utworzenia,</li>
+        <li><strong>stan</strong>, który zmienia się w czasie i trzeba go chronić, jak nauczony model,</li>
+        <li><strong>kilka wymiennych implementacji</strong> jednej umowy, jak modele prognozy.</li>
+      </ul>
+
+      <p>Sygnały, że klasa jest zbędna:</p>
+      <ul>
+        <li>ma dwie metody, z czego jedna to <code>__init__</code>. To funkcja z dodatkowymi krokami,</li>
+        <li>ma same metody statyczne. To moduł,</li>
+        <li>ma nazwę z końcówką <code>Manager</code>, <code>Helper</code>, <code>Utils</code>. Nikt nie wie, za co odpowiada.</li>
+      </ul>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Kolega napisał <code>class ZeroShareCalculator</code> z <code>__init__(self, values)</code> i jedną metodą <code>calculate(self)</code>. Co proponujesz w review?</div>
+        <ul class="quiz-options">
+          <li>Dodać <code>@dataclass</code>.<span class="why">Skróci kod, ale dalej będzie to klasa, która nic nie daje ponad funkcję.</span></li>
+          <li data-correct>Funkcję <code>zero_share(values)</code>.<span class="why">Tak. Obiekt żyje tylko po to, żeby wywołać jedną metodę. Funkcja mówi to samo krócej i łatwiej ją przetestować.</span></li>
+          <li>Klasę abstrakcyjną <code>Calculator</code>, na przyszłość.<span class="why">Abstrakcja bez drugiej implementacji to koszt bez zysku. Dodasz ją, gdy pojawi się drugi przypadek.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Okno czasowe</h3>
+
+      <p>Napisz zamrożony dataclass <code>Window</code> z polami <code>start</code> i <code>length</code> (liczby całkowite). Długość mniejsza od 1 to <code>ValueError</code>. Właściwość <code>end</code> to pierwszy indeks za oknem. Metoda <code>overlaps(other)</code> mówi, czy dwa okna mają wspólny indeks.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+from dataclasses import dataclass
+
+
+class Window:
+    """A range of indices: start, start + 1, ..., end - 1."""
+    ...
+
+
+w = Window(3, 4)
+print(w, w.end, w.overlaps(Window(6, 2)))
+</script>
+        <script type="text/x-python" data-role="test">
+import dataclasses
+assert dataclasses.is_dataclass(Window), "Window ma być dataclass."
+_w = Window(3, 4)
+assert _w.end == 7, f"Okno od 3 o długości 4 kończy się przed 7. end = {_w.end}"
+assert _w == Window(3, 4), "Dwa okna z tymi samymi polami mają być równe."
+try:
+    _w.start = 0
+except dataclasses.FrozenInstanceError:
+    pass
+else:
+    raise AssertionError("Window ma być zamrożony: zmiana pola ma dać FrozenInstanceError.")
+try:
+    Window(0, 0)
+except ValueError:
+    pass
+else:
+    raise AssertionError("Window(0, 0) ma dać ValueError: długość co najmniej 1.")
+assert _w.overlaps(Window(6, 2)) and not _w.overlaps(Window(7, 2)), "Okna 3..6 i 6..7 mają wspólny indeks 6, okna 3..6 i 7..8 nie."
+assert Window(6, 2).overlaps(_w), "overlaps działa w obie strony."
+</script>
+      </div>
+
+      <h3>Mediana jako model</h3>
+
+      <p>Klasa bazowa jest gotowa. Napisz <code>MedianForecaster</code>, który prognozuje medianę całej historii na każdy krok. Nie powtarzaj walidacji z klasy bazowej.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+from abc import ABC, abstractmethod
+from statistics import median
+
+
+class LocalForecaster(ABC):
+    def __init__(self):
+        self._history = None
+
+    def fit(self, history):
+        if not history:
+            raise ValueError("Cannot fit on an empty history.")
+        self._history = list(history)
+        return self
+
+    def predict(self, horizon):
+        if self._history is None:
+            raise RuntimeError("Call fit before predict.")
+        return self._forecast(self._history, horizon)
+
+    @abstractmethod
+    def _forecast(self, history, horizon): ...
+
+
+class MedianForecaster(LocalForecaster):
+    ...
+
+
+print(MedianForecaster().fit([0, 0, 5, 1, 0]).predict(3))
+</script>
+        <script type="text/x-python" data-role="test">
+assert issubclass(MedianForecaster, LocalForecaster), "MedianForecaster ma dziedziczyć po LocalForecaster."
+assert MedianForecaster().fit([0, 0, 5, 1, 0]).predict(3) == [0, 0, 0], "Mediana [0, 0, 5, 1, 0] to 0, na każdy z 3 kroków."
+assert MedianForecaster().fit([1, 4]).predict(1) == [2.5], "Mediana [1, 4] to 2.5."
+try:
+    MedianForecaster().predict(1)
+except RuntimeError:
+    pass
+else:
+    raise AssertionError("predict przed fit ma dać RuntimeError z klasy bazowej.")
+assert "predict" not in MedianForecaster.__dict__ and "fit" not in MedianForecaster.__dict__, "Wystarczy _forecast: fit i predict są w klasie bazowej."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Seria stanie się zamrożonym obiektem, który sam sprawdza swoje dane i zna swój typ popytu. Napiszesz trzy modele prognozy ze wspólną klasą bazową i ocenisz je na 2 509 kompletnych seriach. Jeden z wyników Cię zaskoczy. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/03-classes/03-classes.ipynb</code> w VS Code, a obok plik <code>labs/03-classes/demand.py</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

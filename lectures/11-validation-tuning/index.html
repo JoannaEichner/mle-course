@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>11 · Walidacja i tuning | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="11">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">11 · Walidacja i tuning</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 11 · Część 2: dane i ML</p>
+    <h1>Walidacja i tuning</h1>
+    <p class="lede">Liczba z jednego tygodnia walidacji to jedna próbka. Decyzje oparte na jednej próbce są częściowo losowe, a po dwudziestu takich decyzjach wynik walidacji przestaje mówić prawdę. Ten moduł dotyczy tego, jak mierzyć tak, żeby pomiar przetrwał kontakt z przyszłością, i jak zapisywać eksperymenty, żeby dało się do nich wrócić.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduły 08-10</li>
+      <li><b>Potem:</b> <a href="../../labs/11-validation-tuning/README.md">lab 11</a> i punkt kontrolny 2, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>zbudować backtest rolling origin i wyjaśnić, czemu losowy K-fold kłamie na szeregach czasowych,</li>
+      <li>odróżnić różnicę między modelami od szumu między tygodniami,</li>
+      <li>wybrać metrykę, którą optymalizujesz, pod decyzję, którą ma wspierać,</li>
+      <li>przeszukać hiperparametry Optuną i wiedzieć, czemu wynik najlepszej próby jest zawyżony,</li>
+      <li>zapisywać eksperymenty w MLflow albo prościej, w katalogu z metadanymi.</li>
+    </ul>
+
+    <section id="backtest">
+      <h2>Backtest rolling origin</h2>
+
+      <p>Prognoza w produkcji wygląda zawsze tak samo: model uczy się na wszystkim do dziś i przewiduje następny tydzień. Backtest odtwarza tę sytuację w przeszłości, kilka razy: udaje, że "dziś" było cztery tygodnie temu, potem trzy, potem dwa. Każde takie "dziś" to <strong>fold</strong>. Ocena modelu to średnia z foldów, a rozrzut między foldami mówi, ile w tej średniej jest przypadku.</p>
+
+      <figure class="widget" id="fold-widget">
+        <p class="widget-title">Foldy na 90 dniach danych</p>
+        <p class="widget-sub">Niebieskie dni to trening, pomarańczowe walidacja, szare zamknięty test. Porównaj oba sposoby podziału.</p>
+        <div class="controls">
+          <div class="segmented" role="group" aria-label="Sposób podziału">
+            <button type="button" data-tab="time" aria-pressed="true">po czasie (rolling origin)</button>
+            <button type="button" data-tab="random" aria-pressed="false">losowy K-fold</button>
+          </div>
+          <label>foldy <input type="range" min="2" max="6" step="1" value="4" data-role="folds"> <output data-role="folds-value"></output></label>
+        </div>
+        <div data-role="chart"></div>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <p>Losowy K-fold, standard z podręczników, miesza dni. Model uczy się na wtorku i czwartku i ocenia na środzie, która leży między nimi. Sąsiednie dni tej samej serii są podobne, więc środa jest "łatwa". W labie losowy K-fold daje WAPE 0.339, a backtest po czasie tego samego modelu 0.379. Różnica to nie lepszy model, tylko wyciek z przyszłości.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+last = pd.Timestamp("2024-06-18")
+starts = [last - pd.Timedelta(days=7 * k + 6) for k in (2, 1, 0)]
+print([str(day.date()) for day in starts])</code></pre>
+        <ul class="quiz-options">
+          <li><code>['2024-06-04', '2024-06-11', '2024-06-18']</code><span class="why">To końce okien. Okno kończące się 18 czerwca zaczyna się 6 dni wcześniej.</span></li>
+          <li data-correct><code>['2024-05-29', '2024-06-05', '2024-06-12']</code><span class="why">Tak. Trzy tygodniowe okna, od najstarszego, ostatnie kończy się w ostatnim dniu danych.</span></li>
+          <li><code>['2024-05-28', '2024-06-04', '2024-06-11']</code><span class="why">Okno 7 dni od 12 do 18 czerwca obejmuje oba końce. Początek to koniec minus 6 dni, nie 7.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Dwa modele w backteście: A ma WAPE w foldach 0.38, 0.40, 0.38, 0.36 (średnio 0.380), B ma 0.40, 0.40, 0.40, 0.40. Co możesz powiedzieć?</div>
+        <ul class="quiz-options">
+          <li>A jest lepszy o 0.02 i to pewne.<span class="why">Na czterech foldach A wygrywa trzy razy i remisuje raz. To dobry znak, ale cztery foldy to mało, żeby mówić o pewności.</span></li>
+          <li data-correct>A wygrywa w każdym foldzie, w którym wynik się różni, więc przewaga raczej nie jest przypadkiem. Warto potwierdzić na dłuższym okresie.<span class="why">Tak. Porównuj modele fold po foldzie, a nie tylko średnie: różnica, która powtarza się w każdym tygodniu, znaczy więcej niż ta sama średnia z jednego dużego wygranego tygodnia.</span></li>
+          <li>Nic, bo rozrzut A jest większy.<span class="why">Rozrzut wyników A wynika głównie z różnic między tygodniami. Liczy się, jak A wypada wobec B w tych samych tygodniach.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="metryka">
+      <h2>Którą metrykę optymalizować</h2>
+
+      <p>Tuning i wybór modelu optymalizują jedną liczbę. Ta liczba powinna odpowiadać decyzji, którą prognoza wspiera. W kursie to WAPE na dniach bez braków, bo prognoza służy do zamawiania towaru, a dni z brakami zaniżają obraz popytu. Ale sklep ma też asymetrię kosztów: pusta półka to utracona sprzedaż i zirytowany klient, nadmiar to wyrzucony świeży towar.</p>
+
+      <ul>
+        <li>WAPE traktuje pomyłkę w górę i w dół tak samo,</li>
+        <li>bias pokazuje, w którą stronę model się myli,</li>
+        <li>gdy jedna strona jest droższa, optymalizuje się stratę kwantylową albo wybiera model o najlepszym WAPE spośród tych z akceptowalnym biasem.</li>
+      </ul>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Dwa modele mają WAPE 0.375 i 0.379. Pierwszy ma bias −6%, drugi +4%. Sklep bardziej boi się pustej półki niż strat na przeterminowanym towarze. Który wybierasz?</div>
+        <ul class="quiz-options">
+          <li>Pierwszy, bo ma mniejszy WAPE.<span class="why">Różnica 0.004 WAPE jest w granicach szumu między tygodniami, a bias −6% znaczy systematycznie za małe zamówienia.</span></li>
+          <li data-correct>Drugi: prawie ten sam WAPE, a pomyłki częściej w stronę, która jest tańsza dla tego sklepu.<span class="why">Tak. Metryka to narzędzie decyzji. Kiedy wyniki są bliskie, rozstrzyga koszt błędu.</span></li>
+          <li>Średnią obu prognoz.<span class="why">Łączenie modeli bywa dobrym pomysłem, ale tu nie odpowiada na pytanie o kierunek błędu.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="tuning">
+      <h2>Tuning</h2>
+
+      <p>Hiperparametry LightGBM (krok uczenia, liczba liści, minimalny liść, regularyzacja) wybiera się, porównując wyniki backtestu. Trzy strategie:</p>
+      <ul>
+        <li><strong>siatka</strong>: każda kombinacja z listy. Liczba prób rośnie wykładniczo z liczbą parametrów,</li>
+        <li><strong>losowanie</strong>: losowe kombinacje z zakresów. Zaskakująco dobre, bo zwykle ważne są tylko dwa-trzy parametry,</li>
+        <li><strong>Optuna (TPE)</strong>: losuje na początku, a potem częściej tam, gdzie wcześniejsze próby wypadły dobrze. Umie też przerwać próbę, która po pierwszych foldach wyraźnie przegrywa (pruning).</li>
+      </ul>
+
+<pre><code class="language-python">def objective(trial: optuna.Trial) -> float:
+    params = {
+        "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.2, log=True),
+        "num_leaves": trial.suggest_int("num_leaves", 15, 255, log=True),
+    }
+    results = backtest(lambda: LightGBMForecaster(features, categorical, params), table, folds)
+    return results["wape_in_stock"].mean()
+
+
+study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler(seed=0))
+study.optimize(objective, n_trials=25)</code></pre>
+
+      <h3>Wynik najlepszej próby jest zawyżony</h3>
+
+      <p>Każda próba to pomiar z szumem. Najlepsza z dwudziestu to ta, której szum wypadł najkorzystniej. Nawet gdyby wszystkie ustawienia były równie dobre, najlepsza próba wyglądałaby lepiej niż reszta:</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+rng = np.random.default_rng(0)
+true_wape = 0.40                 # every setting is equally good
+valid = true_wape + rng.normal(0, 0.01, size=20)
+test = true_wape + rng.normal(0, 0.01, size=20)
+best = valid.argmin()
+print(round(valid[best], 3), round(test[best], 3))</code></pre>
+        <ul class="quiz-options">
+          <li><code>0.4 0.4</code><span class="why">Wszystkie ustawienia mają prawdziwe 0.40, ale pomiary mają szum. Najmniejszy z 20 pomiarów jest wyraźnie poniżej 0.40.</span></li>
+          <li data-correct><code>0.377 0.398</code><span class="why">Tak. Na walidacji "zwycięzca" ma 0.377, na świeżych danych 0.398, czyli tyle co wszyscy. Im więcej prób, tym większe złudzenie. Dlatego test oglądasz raz, po wszystkich decyzjach.</span></li>
+          <li><code>0.377 0.377</code><span class="why">Test ma własny, niezależny szum. Zwycięzca walidacji nie ma powodu powtórzyć tam swojego szczęścia.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout story">
+        <span class="label">Z labu</span>
+        <p>Piętnaście prób Optuny poprawia backtest z 0.378 na 0.375. Decyzja o uczeniu tylko na dniach bez braków dała wcześniej 0.024. Strojenie jest na końcu listy, nie na początku: najpierw dane, cechy i poprawna walidacja.</p>
+      </div>
+    </section>
+
+    <section id="mlflow">
+      <h2>Dziennik eksperymentów</h2>
+
+      <p>Po tygodniu eksperymentów nikt nie pamięta, które ustawienia dały 0.375, na jakich danych i z którą wersją cech. <strong>MLflow</strong> zapisuje każdy eksperyment jako <strong>run</strong>: parametry, metryki, pliki (artefakty) i czas. Runy grupują się w <strong>eksperymenty</strong>. Lokalnie wystarczy plik bazy danych:</p>
+
+<pre><code class="language-python">mlflow.set_tracking_uri("sqlite:///data/mlflow/mlflow.db")
+mlflow.set_experiment("freshcast-tuning")
+
+with mlflow.start_run(run_name="trial-3"):
+    mlflow.log_params({"learning_rate": 0.04, "num_leaves": 134})
+    mlflow.log_metrics({"wape_in_stock": 0.375, "bias_in_stock": 0.026})
+    mlflow.log_table(per_fold_results, "backtest.json")</code></pre>
+
+      <p>Potem <code>uv run mlflow ui --backend-store-uri sqlite:///data/mlflow/mlflow.db</code> otwiera przeglądarkę runów z sortowaniem, porównaniem i wykresami.</p>
+
+      <h3>Wersja prostsza</h3>
+
+      <p>MLflow nie jest obowiązkowy. W małym projekcie wystarczy katalog na każdy model z plikiem metadanych obok:</p>
+
+<pre><code class="language-text">models/2024-06-18-lightgbm/
+├── model.txt          # zapisany booster
+└── metadata.json      # parametry, cechy, zakres dat treningu, wyniki backtestu,
+                       # commit gita, wersja danych</code></pre>
+
+      <p>W module 14 zbudujesz taki zapis w pipeline'ie. Obojętnie, którą drogę wybierzesz, zapisuj to, bez czego nie odtworzysz wyniku.</p>
+
+      <div class="quiz" id="q3" data-type="multi">
+        <div class="quiz-q">Co trzeba zapisać, żeby za pół roku odtworzyć najlepszy model? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Hiperparametry i ziarno losowości.<span class="why">Tak. Bez nich nie da się powtórzyć treningu.</span></li>
+          <li data-correct>Wersję kodu: commit gita.<span class="why">Tak. Cechy liczone przez inny kod to inny model.</span></li>
+          <li data-correct>Zakres dat i wersję danych treningowych.<span class="why">Tak. Ten sam kod na innych danych daje inny model.</span></li>
+          <li data-correct>Wersje pakietów, czyli <code>uv.lock</code>.<span class="why">Tak. Nowa wersja LightGBM potrafi dać inne drzewa przy tych samych parametrach.</span></li>
+          <li>Wyjście <code>pip freeze</code> całego systemu operacyjnego.<span class="why">Wystarczy lock projektu. Reszta systemu nie wpływa na model.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Foldy</h3>
+
+      <p>Napisz <code>rolling_folds(last_day, n_folds, horizon)</code> na numerach dni: lista par <code>(start, end)</code> okien walidacji, od najstarszego, z końcami włącznie. Ostatnie okno kończy się w <code>last_day</code>.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+def rolling_folds(last_day, n_folds, horizon):
+    """Validation windows (start, end), inclusive, oldest first, ending at last_day."""
+    ...
+
+
+print(rolling_folds(89, 3, 7))
+</script>
+        <script type="text/x-python" data-role="test">
+assert rolling_folds(89, 3, 7) == [(69, 75), (76, 82), (83, 89)], f"Oczekiwano [(69, 75), (76, 82), (83, 89)]. Jest {rolling_folds(89, 3, 7)}."
+assert rolling_folds(10, 1, 1) == [(10, 10)], "Jeden fold o długości 1 to sam ostatni dzień."
+try:
+    rolling_folds(10, 0, 7)
+except ValueError:
+    pass
+else:
+    raise AssertionError("Zero foldów ma dać ValueError.")
+</script>
+      </div>
+
+      <h3>Porównanie fold po foldzie</h3>
+
+      <p>Napisz <code>compare(a, b)</code>: dla wyników dwóch modeli w tych samych foldach (niższy lepszy) zwraca średnią różnicę <code>a − b</code> i liczbę foldów, w których <code>a</code> było lepsze.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+def compare(a, b):
+    """Mean of a - b and the number of folds where a is lower than b."""
+    ...
+
+
+print(compare([0.38, 0.40, 0.38, 0.36], [0.40, 0.40, 0.40, 0.40]))
+</script>
+        <script type="text/x-python" data-role="test">
+_diff, _wins = compare([0.38, 0.40, 0.38, 0.36], [0.40, 0.40, 0.40, 0.40])
+assert abs(_diff - (-0.02)) < 1e-9, f"Średnia różnica to -0.02. Jest {_diff}."
+assert _wins == 3, f"a jest lepsze w 3 foldach (w jednym remis). Jest {_wins}."
+assert compare([0.5], [0.4]) == (compare([0.5], [0.4])[0], 0) and abs(compare([0.5], [0.4])[0] - 0.1) < 1e-9, "Gdy a jest gorsze, wygranych jest 0."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Zbudujesz backtest, powtórzysz na nim decyzje z modułów 08-10, zobaczysz, ile losowy K-fold dodaje do wyniku, przeszukasz ustawienia LightGBM Optuną z zapisem do MLflow i raz zajrzysz do testu. Potem punkt kontrolny 2. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/11-validation-tuning/11-validation-tuning.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+<script src="widgets.js"></script>
+</body>
+</html>

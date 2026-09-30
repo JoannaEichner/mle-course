@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>15 · Dane w chmurze i SQL | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="15">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">15 · Dane w chmurze i SQL</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 15 · Część 3: produkcja</p>
+    <h1>Dane w chmurze i SQL</h1>
+    <p class="lede">W firmie dane i modele nie leżą na laptopie. Leżą w magazynie obiektów w chmurze, a pierwsze pytania zadaje się im w SQL. Ten moduł uczy obu na lokalnym serwerze, który mówi tym samym protokołem co Amazon S3, więc kod z labu działa w chmurze po zmianie adresu i kluczy.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduł 14</li>
+      <li><b>Potem:</b> <a href="../../labs/15-cloud-sql/README.md">lab 15</a>, około 9 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>pracować z bucketem S3 przez boto3 i wiedzieć, czym klucz różni się od ścieżki,</li>
+      <li>trzymać klucze dostępu poza kodem,</li>
+      <li>ponawiać tylko to, co może przejść, z rosnącymi odstępami,</li>
+      <li>publikować model tak, żeby częściowa publikacja nie wyglądała na kompletną,</li>
+      <li>testować kod sieciowy na podróbce, bez sieci i bez czekania,</li>
+      <li>pisać w SQL filtry, grupowania, złączenia i funkcje okna, z parametrami zamiast sklejania tekstu.</li>
+    </ul>
+
+    <section id="s3">
+      <h2>Magazyn obiektów</h2>
+
+      <p>S3 (i jego odpowiedniki w innych chmurach) przechowuje <strong>obiekty</strong> w <strong>bucketach</strong>. Obiekt ma <strong>klucz</strong>, na przykład <code>models/lightgbm_20240626-213000/model.joblib</code>, treść i kilka metadanych. Katalogów nie ma: ukośniki w kluczu to tylko konwencja nazewnicza, a "katalog" to wspólny początek kluczy (prefiks).</p>
+
+<pre><code class="language-python">import boto3
+
+s3 = boto3.client("s3", endpoint_url="http://localhost:9000", region_name="us-east-1")
+s3.put_object(Bucket="freshcast-lab", Key="processed/daily.parquet", Body=data)
+s3.head_object(Bucket="freshcast-lab", Key="processed/daily.parquet")["ETag"]
+s3.list_objects_v2(Bucket="freshcast-lab", Prefix="processed/")</code></pre>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">W buckecie są klucze <code>processed/daily.parquet</code> i <code>processed/store_dim.parquet</code>. Co zwróci <code>head_object</code> dla klucza <code>processed</code>?</div>
+        <ul class="quiz-options">
+          <li>Informacje o katalogu <code>processed</code>.<span class="why">Katalogów nie ma. Jest tylko wspólny początek dwóch kluczy.</span></li>
+          <li data-correct>Błąd 404: takiego obiektu nie ma.<span class="why">Tak. Dlatego <code>exists</code> w labie sprawdza dokładny klucz, a nie "czy coś zaczyna się od tego tekstu".</span></li>
+          <li>Pierwszy z dwóch obiektów.<span class="why"><code>head_object</code> dotyczy dokładnie jednego klucza.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>ETag</strong> to identyfikator wersji treści obiektu. Zmienia się, gdy obiekt zostanie podmieniony. <code>head_object</code> zwraca go bez przesyłania treści, więc cache może zapytać "czy coś się zmieniło?" jednym tanim żądaniem.</p>
+
+      <h3>Klucze dostępu</h3>
+
+      <p>Klient boto3 szuka kluczy sam, w ustalonej kolejności: zmienne środowiskowe (<code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>), plik profilu w katalogu domowym, rola maszyny w chmurze. Kod ich nie zna i nie powinien znać. Klucz wpisany w kod albo w plik w repozytorium prędzej czy później wycieknie, a w publicznym repozytorium boty znajdą go w kilka minut (G4).</p>
+
+      <p>Lokalny serwer z labu (moto) przyjmuje dowolne klucze, ale żądanie i tak musi być podpisane, więc jakaś para jest potrzebna. Kod labu działa z prawdziwym S3 po zmianie <code>endpoint_url</code> na brak (domyślny adres Amazona) i kluczy w środowisku.</p>
+    </section>
+
+    <section id="retry">
+      <h2>Ponawianie</h2>
+
+      <p>Sieć zawodzi. Część błędów mija sama: przekroczony czas, serwer przeciążony (<code>503</code>, <code>SlowDown</code>). Część nie minie nigdy: brak uprawnień, brak obiektu, zła nazwa bucketu. Ponawiasz tylko pierwsze, kilka razy, z rosnącymi odstępami, żeby przeciążony serwer miał czas odetchnąć:</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">base, factor, cap = 0.5, 2.0, 10.0
+print([min(base * factor ** k, cap) for k in range(6)])</code></pre>
+        <ul class="quiz-options">
+          <li><code>[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]</code><span class="why">To odstępy rosnące liniowo. Tu każdy jest dwa razy dłuższy od poprzedniego.</span></li>
+          <li data-correct><code>[0.5, 1.0, 2.0, 4.0, 8.0, 10.0]</code><span class="why">Tak. Wykładniczy wzrost z górnym limitem. Gdy wielu klientów ponawia naraz, dodaje się jeszcze losowy składnik (jitter), żeby nie wracali w tej samej sekundzie.</span></li>
+          <li><code>[0.5, 1.0, 2.0, 4.0, 8.0, 16.0]</code><span class="why">Limit 10 sekund obcina ostatni odstęp.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q2" data-type="multi">
+        <div class="quiz-q">Które błędy ponawiasz? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Przekroczony czas połączenia.<span class="why">Tak. Za chwilę sieć może działać.</span></li>
+          <li data-correct><code>503 SlowDown</code>.<span class="why">Tak. Serwer wprost prosi o wolniejsze tempo.</span></li>
+          <li><code>403 AccessDenied</code>.<span class="why">Uprawnienia za sekundę będą takie same. Ponawianie tylko opóźnia porażkę.</span></li>
+          <li><code>404 NoSuchKey</code>.<span class="why">Obiektu nie ma i nie pojawi się od ponawiania. To odpowiedź, nie awaria.</span></li>
+        </ul>
+      </div>
+
+      <p>W testach nikt nie chce czekać naprawdę. Dlatego funkcja czekająca (<code>sleep</code>) jest parametrem: w produkcji to <code>time.sleep</code>, w teście funkcja, która tylko zapisuje, ile kazano czekać. To wstrzykiwanie zależności z modułu 04.</p>
+    </section>
+
+    <section id="publikacja">
+      <h2>Publikacja, której nie da się zobaczyć w połowie</h2>
+
+      <p>Model to kilka plików. Wysyłanie trwa, a proces może paść w środku. Serwer prognoz, który w tym czasie zajrzy do bucketu, nie może wziąć połowy modelu za cały. Dwie zasady:</p>
+      <ul>
+        <li><strong>znacznik na końcu</strong>: <code>metadata.json</code> wysyłasz jako ostatni. Model jest kompletny wtedy i tylko wtedy, gdy znacznik istnieje,</li>
+        <li><strong>bez nadpisywania</strong>: opublikowana sygnatura się nie zmienia. Prognozy zrobione starym modelem wskazują na coś, co nadal istnieje.</li>
+      </ul>
+      <p>Po stronie pobierania to samo w lustrze: pobierasz do katalogu tymczasowego i zmieniasz jego nazwę dopiero po pobraniu wszystkiego. Zmiana nazwy w obrębie jednego dysku jest atomowa, więc katalog modelu albo jest cały, albo go nie ma.</p>
+    </section>
+
+    <section id="testy">
+      <h2>Testy kodu sieciowego</h2>
+
+      <p>Testy nie łączą się z siecią (T4). Dwie podróbki:</p>
+      <ul>
+        <li><strong>moto</strong> udaje całe S3 w pamięci procesu: <code>with mock_aws(): ...</code>. Test tworzy bucket, wysyła obiekt, sprawdza wynik, jak na prawdziwym serwerze,</li>
+        <li><strong>własna podróbka klienta</strong>: mała klasa z jedną metodą, która najpierw rzuca błąd przejściowy, a potem odpowiada. Moto nie zawodzi przejściowo, więc ponawianie sprawdzasz tak.</li>
+      </ul>
+    </section>
+
+    <section id="sql">
+      <h2>SQL</h2>
+
+      <p>SQL to język pytań do tabel. W labie używasz <strong>DuckDB</strong>: bazy, która działa w procesie Pythona i czyta plik parquet bezpośrednio, z dysku albo z bucketu. Pytania są te same, co w pandas, tylko zapisane inaczej:</p>
+
+      <table>
+        <thead><tr><th>pandas</th><th>SQL</th></tr></thead>
+        <tbody>
+          <tr><td><code>df.loc[maska, kolumny]</code></td><td><code>SELECT kolumny FROM t WHERE warunek</code></td></tr>
+          <tr><td><code>df.groupby(k).agg(...)</code></td><td><code>SELECT k, SUM(x) FROM t GROUP BY k</code></td></tr>
+          <tr><td><code>df.merge(dim, on=k, how="left")</code></td><td><code>FROM t LEFT JOIN dim USING (k)</code></td></tr>
+          <tr><td><code>df.groupby(k)[x].shift(1)</code></td><td><code>LAG(x) OVER (PARTITION BY k ORDER BY dt)</code></td></tr>
+          <tr><td><code>df.groupby(k)[x].transform("sum")</code></td><td><code>SUM(x) OVER (PARTITION BY k)</code></td></tr>
+        </tbody>
+      </table>
+
+      <p>Bloki niżej używają <code>sqlite3</code> z biblioteki standardowej Pythona. Składnia jest ta sama co w DuckDB.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import sqlite3
+
+con = sqlite3.connect(":memory:")
+con.execute("CREATE TABLE sales (store INT, product INT, units REAL)")
+con.executemany("INSERT INTO sales VALUES (?, ?, ?)", [(1, 10, 2.0), (1, 11, 3.0), (2, 10, 5.0)])
+print(con.execute("SELECT store, COUNT(*), SUM(units) FROM sales GROUP BY store ORDER BY store").fetchall())</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>[(1, 2, 5.0), (2, 1, 5.0)]</code><span class="why">Tak. Jeden wiersz na sklep: liczba wierszy i suma sztuk.</span></li>
+          <li><code>[(1, 5.0), (2, 5.0)]</code><span class="why">Zapytanie wybiera trzy kolumny: sklep, liczbę wierszy i sumę.</span></li>
+          <li><code>[(1, 10, 2.0), (1, 11, 3.0), (2, 10, 5.0)]</code><span class="why">To wiersze bez grupowania. <code>GROUP BY</code> zwija je do jednego na sklep.</span></li>
+        </ul>
+      </div>
+
+      <h3>Funkcje okna</h3>
+
+      <p>Funkcja okna liczy coś dla każdego wiersza z jego otoczenia, bez zwijania wierszy. <code>PARTITION BY</code> wyznacza grupy (jak <code>groupby</code>), <code>ORDER BY</code> kolejność w grupie, a ramka (<code>ROWS BETWEEN ...</code>) zakres wierszy. Bez <code>PARTITION BY</code> wraca znany błąd z modułu 07:</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import sqlite3
+
+con = sqlite3.connect(":memory:")
+con.execute("CREATE TABLE s (series TEXT, day INT, units REAL)")
+con.executemany("INSERT INTO s VALUES (?, ?, ?)", [("a", 1, 1.0), ("a", 2, 2.0), ("b", 1, 7.0), ("b", 2, 8.0)])
+query = "SELECT series, day, LAG(units) OVER ({}) FROM s ORDER BY series, day"
+print(con.execute(query.format("ORDER BY series, day")).fetchall()[2])
+print(con.execute(query.format("PARTITION BY series ORDER BY day")).fetchall()[2])</code></pre>
+        <ul class="quiz-options">
+          <li><code>('b', 1, None)</code>, <code>('b', 1, None)</code><span class="why">Bez <code>PARTITION BY</code> okno obejmuje wszystkie wiersze, więc pierwszy dzień serii b widzi ostatni dzień serii a.</span></li>
+          <li data-correct><code>('b', 1, 2.0)</code>, <code>('b', 1, None)</code><span class="why">Tak. Bez podziału na serie "wczoraj" serii b to sprzedaż serii a. Z podziałem pierwszy dzień serii nie ma wczoraj.</span></li>
+          <li><code>('b', 1, 7.0)</code>, <code>('b', 1, None)</code><span class="why"><code>LAG</code> bierze wartość z wiersza wcześniejszego, nie z bieżącego.</span></li>
+        </ul>
+      </div>
+
+      <p>Funkcji okna nie da się filtrować w <code>WHERE</code> tego samego zapytania, bo <code>WHERE</code> działa przed nimi. "Trzy najlepsze produkty w każdym sklepie" liczysz w dwóch krokach: ranking w <code>WITH</code>, filtr w zapytaniu zewnętrznym.</p>
+
+      <h3>Parametry, nie sklejanie</h3>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">import sqlite3
+
+con = sqlite3.connect(":memory:")
+con.execute("CREATE TABLE products (name TEXT)")
+con.executemany("INSERT INTO products VALUES (?)", [("jabłka",), ("gruszki",)])
+name = "x' OR '1'='1"
+print(len(con.execute(f"SELECT * FROM products WHERE name = '{name}'").fetchall()),
+      len(con.execute("SELECT * FROM products WHERE name = ?", [name]).fetchall()))</code></pre>
+        <ul class="quiz-options">
+          <li><code>0 0</code><span class="why">Wklejony tekst zmienił sens zapytania: warunek <code>OR '1'='1'</code> jest zawsze prawdziwy.</span></li>
+          <li data-correct><code>2 0</code><span class="why">Tak. Wartość wklejona w tekst stała się częścią zapytania i zwróciła wszystko. Jako parametr <code>?</code> jest tylko wartością i nic nie pasuje. To SQL injection w najprostszej postaci.</span></li>
+          <li><code>2 2</code><span class="why">Parametr jest porównywany jako cały napis. Żaden produkt tak się nie nazywa.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p>Każda wartość, która zmienia się między wywołaniami (ścieżka, data, liczba, nazwa), trafia do zapytania jako parametr. Tylko nazw tabel i kolumn nie da się podać parametrem. Te piszesz wprost i nigdy nie bierzesz z danych od użytkownika.</p>
+      </div>
+    </section>
+
+    <section id="chmura">
+      <h2>Pojęcia z chmury</h2>
+
+      <p>Kilka nazw, które spotkasz w zespole, przełożonych na to, co już znasz:</p>
+      <table>
+        <thead><tr><th>Pojęcie</th><th>Co to jest</th><th>Twój odpowiednik z kursu</th></tr></thead>
+        <tbody>
+          <tr><td>Athena, BigQuery</td><td>SQL nad plikami w magazynie obiektów, płatny za przeczytane dane</td><td>DuckDB nad parquet w buckecie</td></tr>
+          <tr><td>Lambda, Cloud Functions</td><td>funkcja uruchamiana przez zdarzenie (nowy plik, harmonogram), bez utrzymywania serwera</td><td>polecenie <code>freshcast forecast</code> uruchamiane przez cron</td></tr>
+          <tr><td>Feature Store</td><td>wspólny magazyn cech dla treningu i prognozy, z wersją cechy z właściwego momentu</td><td>rejestr cech z modułu 09 i jedna funkcja budująca cechy</td></tr>
+          <tr><td>model registry</td><td>katalog opublikowanych modeli z wersjami i stanem (testowy, produkcyjny)</td><td>modele pod sygnaturami w buckecie, MLflow z modułu 11</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Odstępy ponawiania</h3>
+
+      <p>Napisz <code>delays(attempts, base, factor, cap)</code>: lista odstępów między kolejnymi próbami. Prób jest <code>attempts</code>, więc odstępów o jeden mniej. Każdy odstęp jest <code>factor</code> razy dłuższy od poprzedniego, ale nie dłuższy niż <code>cap</code>.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+def delays(attempts, base, factor, cap):
+    """Waits between attempts: base, base * factor, ..., each at most cap."""
+    ...
+
+
+print(delays(4, 0.5, 2.0, 10.0))
+</script>
+        <script type="text/x-python" data-role="test">
+assert delays(4, 0.5, 2.0, 10.0) == [0.5, 1.0, 2.0], f"Cztery próby, trzy odstępy: [0.5, 1.0, 2.0]. Jest {delays(4, 0.5, 2.0, 10.0)}."
+assert delays(1, 0.5, 2.0, 10.0) == [], "Jedna próba: bez czekania."
+assert delays(6, 1.0, 3.0, 20.0) == [1.0, 3.0, 9.0, 20.0, 20.0], f"Limit obcina odstępy. Jest {delays(6, 1.0, 3.0, 20.0)}."
+</script>
+      </div>
+
+      <h3>Średnia z poprzednich dni w SQL</h3>
+
+      <p>Tabela <code>s(series, day, units)</code>. Napisz zapytanie <code>QUERY</code>, które dla każdego wiersza zwraca <code>series</code>, <code>day</code> i średnią <code>units</code> z dwóch poprzednich dni tej samej serii (bez bieżącego), posortowane po serii i dniu. Pierwszy dzień serii nie ma poprzednich dni: <code>NULL</code>.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import sqlite3
+
+QUERY = """
+SELECT ...
+"""
+
+con = sqlite3.connect(":memory:")
+con.execute("CREATE TABLE s (series TEXT, day INT, units REAL)")
+con.executemany("INSERT INTO s VALUES (?, ?, ?)", [("a", 1, 2.0), ("a", 2, 4.0), ("a", 3, 6.0), ("b", 1, 10.0), ("b", 2, 20.0)])
+print(con.execute(QUERY).fetchall())
+</script>
+        <script type="text/x-python" data-role="test">
+import sqlite3 as _sqlite3
+_con = _sqlite3.connect(":memory:")
+_con.execute("CREATE TABLE s (series TEXT, day INT, units REAL)")
+_con.executemany("INSERT INTO s VALUES (?, ?, ?)", [("b", 2, 20.0), ("a", 3, 6.0), ("a", 1, 2.0), ("b", 1, 10.0), ("a", 2, 4.0), ("a", 4, 8.0)])
+_rows = _con.execute(QUERY).fetchall()
+assert _rows == [("a", 1, None), ("a", 2, 2.0), ("a", 3, 3.0), ("a", 4, 5.0), ("b", 1, None), ("b", 2, 10.0)], f"Oczekiwano średnich z dwóch poprzednich dni w serii. Jest {_rows}."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Osiem ticketów: ustawienia bucketu, ponawianie, serwis S3, cache z ETagiem, publikacja modelu, testy na podróbkach i dwa zestawy zapytań SQL, w tym funkcje okna porównane z pandas. Tu też instalujesz Dockera. Około 9 godzin.</p>
+      <p>Zacznij od <code>labs/15-cloud-sql/README.md</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

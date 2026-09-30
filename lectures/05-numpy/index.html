@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>05 · NumPy | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="05">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">05 · NumPy</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 05 · Część 2: dane i ML</p>
+    <h1>NumPy</h1>
+    <p class="lede">W labach 01-03 liczyłeś w pętlach, wartość po wartości. NumPy liczy na całych tablicach naraz, setki razy szybciej, i na nim stoi cała reszta: pandas, scikit-learn, LightGBM, PyTorch. Ten moduł uczy myśleć tablicami i kończy się metrykami, którymi ocenisz każdy model do końca kursu.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> część 1</li>
+      <li><b>Potem:</b> <a href="../../labs/05-numpy/README.md">lab 05</a>, około 5 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>tworzyć tablice, zmieniać ich kształt i wiedzieć, kiedy wycinek jest widokiem, a kiedy kopią,</li>
+      <li>liczyć wzdłuż osi i korzystać z broadcastingu,</li>
+      <li>wybierać dane maskami i <code>np.where</code>,</li>
+      <li>obchodzić się z <code>NaN</code> i unikać pułapek typów liczbowych,</li>
+      <li>dobrać metrykę błędu prognozy do pytania i wyjaśnić, co przeoczy.</li>
+    </ul>
+
+    <p>Bloki z kodem uruchamiają prawdziwe NumPy w przeglądarce. Pierwsze uruchomienie pobiera je, co trwa kilkanaście sekund.</p>
+
+    <section id="tablice">
+      <h2>Tablica</h2>
+
+      <p><code>np.ndarray</code> to blok pamięci z liczbami jednego typu, ułożonymi jedna za drugą. Lista Pythona trzyma wskaźniki do osobnych obiektów, rozrzuconych po pamięci. Stąd różnica w szybkości: operacja na tablicy to jedna pętla w C po ciągłej pamięci, a nie milion wywołań Pythona.</p>
+
+<pre><code class="language-python">import numpy as np
+
+sales = np.array([5.0, 3.0, 8.0, 1.0])
+sales.shape    # (4,)
+sales.dtype    # float64
+sales * 2      # array([10.,  6., 16.,  2.])  -- bez pętli
+
+matrix = np.arange(12.0).reshape(3, 4)   # 3 wiersze, 4 kolumny
+matrix[1, 2]   # wiersz 1, kolumna 2: 6.0
+matrix[:, 0]   # pierwsza kolumna: array([0., 4., 8.])</code></pre>
+
+      <p>Kształt (<code>shape</code>) to krotka rozmiarów w każdym wymiarze. <code>reshape</code> zmienia kształt bez kopiowania danych, jeśli liczba elementów się zgadza.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+sales = np.array([5.0, 3.0, 8.0, 1.0])
+first_days = sales[:2]
+first_days[0] = 0.0
+print(sales)</code></pre>
+        <ul class="quiz-options">
+          <li><code>[5. 3. 8. 1.]</code><span class="why">Tak byłoby z listą Pythona: wycinek listy to kopia. W NumPy wycinek to widok na te same dane.</span></li>
+          <li data-correct><code>[0. 3. 8. 1.]</code><span class="why">Tak. <code>first_days</code> to okno na pamięć <code>sales</code>. Jeśli chcesz osobną tablicę, napisz <code>sales[:2].copy()</code>.</span></li>
+          <li><code>ValueError</code><span class="why">Zapis do widoku jest dozwolony. I właśnie dlatego trzeba o nim pamiętać.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p>Wycinek (<code>a[1:3]</code>, <code>a[:, 0]</code>) to widok. Indeksowanie maską albo listą indeksów (<code>a[a > 0]</code>, <code>a[[0, 2]]</code>) daje kopię. Funkcja, która dostaje tablicę i zmienia jej wycinek, zmienia dane wołającego. To ta sama reguła co w module 01: nie zmieniaj argumentów.</p>
+      </div>
+    </section>
+
+    <section id="osie">
+      <h2>Osie</h2>
+
+      <p>Funkcje agregujące przyjmują <code>axis</code>: wymiar, <em>wzdłuż którego</em> liczą, czyli ten, który znika z wyniku. W macierzy (serie, dni) <code>axis=1</code> sumuje dni każdej serii, a <code>axis=0</code> sumuje serie każdego dnia.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+m = np.array([[1, 2, 3], [4, 5, 6]])
+print(m.sum(axis=0), m.sum(axis=1))</code></pre>
+        <ul class="quiz-options">
+          <li><code>[ 6 15] [5 7 9]</code><span class="why">Odwrotnie. <code>axis=0</code> znika, więc zostają trzy kolumny: sumy w pionie.</span></li>
+          <li data-correct><code>[5 7 9] [ 6 15]</code><span class="why">Tak. <code>axis=0</code> sumuje w dół, po wierszach, zostawiając kolumny. <code>axis=1</code> sumuje w poprzek, zostawiając wiersze.</span></li>
+          <li><code>21 21</code><span class="why">Suma wszystkiego to <code>m.sum()</code> bez osi.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="broadcasting">
+      <h2>Broadcasting</h2>
+
+      <p>Działanie na dwóch tablicach o różnych kształtach NumPy wykonuje, jeśli kształty da się dopasować. Porównuje je od prawej: dwa wymiary pasują, gdy są równe albo jeden z nich to 1. Wymiar 1 jest wtedy "rozciągany" bez kopiowania.</p>
+
+      <table>
+        <thead><tr><th>Kształty</th><th>Wynik</th></tr></thead>
+        <tbody>
+          <tr><td><code>(4, 24)</code> i <code>(24,)</code></td><td><code>(4, 24)</code>: ten sam wiersz dla każdego z 4 wierszy</td></tr>
+          <tr><td><code>(4, 24)</code> i <code>(4, 1)</code></td><td><code>(4, 24)</code>: ta sama wartość w każdej z 24 kolumn wiersza</td></tr>
+          <tr><td><code>(4, 24)</code> i <code>(4,)</code></td><td>błąd: od prawej 24 i 4 się nie zgadzają</td></tr>
+        </tbody>
+      </table>
+
+      <p>Ostatni wiersz to najczęstszy błąd. Sumy wierszy mają kształt <code>(4,)</code>, a dzielenie macierzy przez nie wymaga <code>(4, 1)</code>: <code>keepdims=True</code> albo <code>totals[:, None]</code>.</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+m = np.ones((4, 24))
+totals = m.sum(axis=1)
+print(totals.shape, (m / totals[:, None]).shape)
+try:
+    m / totals
+except ValueError:
+    print("ValueError")</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>(4,) (4, 24)</code>, <code>ValueError</code><span class="why">Tak. Z dodanym wymiarem kolumna sum pasuje do każdej kolumny macierzy. Bez niego kształty <code>(4, 24)</code> i <code>(4,)</code> się nie zgadzają.</span></li>
+          <li><code>(4, 1) (4, 24)</code>, <code>ValueError</code><span class="why"><code>sum(axis=1)</code> usuwa oś. Żeby ją zostawić, trzeba <code>keepdims=True</code>.</span></li>
+          <li><code>(4,) (4, 24)</code>, <code>(4, 24)</code><span class="why">Broadcasting porównuje wymiary od prawej: 24 i 4 nie pasują i nie są jedynką.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p>Gorzej niż błąd jest broadcasting, który się udaje, ale nie tak, jak chciałeś. Macierz <code>(24, 24)</code> podzielona przez sumy <code>(24,)</code> dzieli kolumny, a nie wiersze, i nie zgłasza żadnego błędu. Przy macierzach kwadratowych zawsze używaj <code>keepdims=True</code>.</p>
+      </div>
+    </section>
+
+    <section id="maski">
+      <h2>Maski i np.where</h2>
+
+      <p>Porównanie tablicy daje tablicę wartości logicznych, czyli <strong>maskę</strong>. Maska indeksuje, liczy i wybiera:</p>
+
+      <ul>
+        <li><code>sales[in_stock]</code>: tylko elementy, gdzie maska jest <code>True</code>,</li>
+        <li><code>(sales == 0).sum()</code> i <code>.mean()</code>: liczba i udział, bo <code>True</code> liczy się jako 1,</li>
+        <li><code>np.where(warunek, a, b)</code>: element z <code>a</code> tam, gdzie warunek jest prawdziwy, z <code>b</code> gdzie indziej,</li>
+        <li>maski łączysz przez <code>&amp;</code>, <code>|</code>, <code>~</code>, z nawiasami: <code>(a > 0) &amp; (b == 0)</code>.</li>
+      </ul>
+
+      <div class="predict" id="p4" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+sales = np.array([0.0, 4.0, 2.0, 0.0, 6.0])
+in_stock = np.array([True, True, False, True, True])
+print(sales[in_stock].mean(), (sales == 0).mean(), np.where(sales > 3, 1, 0))</code></pre>
+        <ul class="quiz-options">
+          <li><code>2.4 0.4 [0 1 0 0 1]</code><span class="why">2.4 to średnia wszystkich pięciu dni. Maska wycina dzień z brakiem towaru.</span></li>
+          <li data-correct><code>2.5 0.4 [0 1 0 0 1]</code><span class="why">Tak. Zostają dni 0, 4, 0, 6, średnia 2.5. Dwa zera na pięć dni to 0.4.</span></li>
+          <li><code>2.5 2 [0 1 0 0 1]</code><span class="why"><code>.mean()</code> z maski daje udział, nie liczbę. Liczbę dałoby <code>.sum()</code>.</span></li>
+        </ul>
+      </div>
+
+      <p>Tak w labie ocenisz prognozę tylko na dniach bez braków towaru: maska <code>stockout_hours == 0</code> trafia do każdej metryki.</p>
+    </section>
+
+    <section id="nan">
+      <h2>NaN i typy liczbowe</h2>
+
+      <p><code>NaN</code> (not a number) oznacza w tablicach float brak wartości. Zaraża każde działanie, w którym bierze udział, i nie jest równy niczemu, nawet sobie.</p>
+
+      <div class="predict" id="p5" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+x = np.array([1.0, np.nan, 3.0])
+print(x.mean(), np.nanmean(x), np.nan == np.nan, np.isnan(x).sum())</code></pre>
+        <ul class="quiz-options">
+          <li><code>2.0 2.0 True 1</code><span class="why"><code>mean</code> nie pomija braków: jedna wartość <code>NaN</code> robi <code>NaN</code> z całej średniej.</span></li>
+          <li data-correct><code>nan 2.0 False 1</code><span class="why">Tak. Funkcje <code>nan*</code> pomijają braki. Braki wykrywasz przez <code>np.isnan</code>, bo <code>== np.nan</code> zawsze daje <code>False</code>.</span></li>
+          <li><code>nan 2.0 False 0</code><span class="why"><code>np.isnan</code> znajduje brak. Nie działa tylko porównanie przez <code>==</code>.</span></li>
+        </ul>
+      </div>
+
+      <p>Kiedy <code>NaN</code> jest dobry? Gdy wartość naprawdę nie istnieje. Udział godzin w dniu bez sprzedaży nie istnieje: zero byłoby kłamstwem ("każda godzina miała zerowy udział"), a nieskończoność błędem. Dlatego <code>row_shares</code> w labie daje dla takiego wiersza <code>NaN</code>, a średni profil liczy się przez <code>np.nanmean</code>.</p>
+
+      <h3>Liczby całkowite i zmiennoprzecinkowe</h3>
+
+      <p>Typ tablicy (<code>dtype</code>) ustala zakres wartości. Liczby całkowite o stałym rozmiarze się przepełniają, bez ostrzeżenia:</p>
+
+      <div class="predict" id="p6" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+units = np.array([200, 100], dtype=np.uint8)
+print(units.sum(), units + units)</code></pre>
+        <ul class="quiz-options">
+          <li><code>300 [400 200]</code><span class="why"><code>uint8</code> mieści wartości od 0 do 255. 400 się nie mieści.</span></li>
+          <li data-correct><code>300 [144 200]</code><span class="why">Tak. <code>sum</code> liczy w szerszym typie, ale dodawanie tablic zostaje w <code>uint8</code> i przekręca się: 400 − 256 = 144. Bez błędu i bez ostrzeżenia.</span></li>
+          <li><code>OverflowError</code><span class="why">Operacje na tablicach nie zgłaszają przepełnienia. Wynik jest po cichu zły.</span></li>
+        </ul>
+      </div>
+
+      <p>Zmniejszanie typów oszczędza pamięć (moduł 07), ale tylko tam, gdzie zakres na pewno wystarczy. Liczby zmiennoprzecinkowe mają inny problem: skończoną precyzję. <code>0.1 + 0.2</code> to nie dokładnie <code>0.3</code>, a <code>float32</code> ma tylko około 7 cyfr znaczących: milion razy dodane po kolei <code>0.1</code> w <code>float32</code> daje około 100 958 zamiast 100 000. Wyniki porównuj przez <code>np.isclose</code>, a sumy licz w <code>float64</code>.</p>
+    </section>
+
+    <section id="metryki">
+      <h2>Metryki błędu prognozy</h2>
+
+      <p>Metryka to jedna liczba, która mówi, jak bardzo prognoza <code>p</code> myli się wobec rzeczywistości <code>a</code>. Różne metryki karzą różne błędy, więc wybór metryki to wybór, jaki błąd jest dla Ciebie najgorszy.</p>
+
+      <table>
+        <thead><tr><th>Metryka</th><th>Wzór</th><th>Mówi</th></tr></thead>
+        <tbody>
+          <tr><td>MAE</td><td><code>mean(|a − p|)</code></td><td>średnia pomyłka w sztukach</td></tr>
+          <tr><td>RMSE</td><td><code>sqrt(mean((a − p)²))</code></td><td>jak MAE, ale duże pomyłki ważą więcej</td></tr>
+          <tr><td>WAPE</td><td><code>sum(|a − p|) / sum(|a|)</code></td><td>jaka część całej sprzedaży to pomyłka</td></tr>
+          <tr><td>bias</td><td><code>(sum(p) − sum(a)) / sum(a)</code></td><td>czy prognoza jest systematycznie za wysoka (+) albo za niska (−)</td></tr>
+        </tbody>
+      </table>
+
+      <p>Popularny MAPE, czyli średnia z procentowych błędów w wierszach, nie nadaje się do sprzedaży dziennej. Dzieli przez rzeczywistą wartość każdego dnia, a dzień z zerową sprzedażą daje dzielenie przez zero. Dni z małą sprzedażą dostają ogromne procenty. WAPE dzieli sumę przez sumę, więc zera mu nie przeszkadzają, a dni ważą tyle, ile sprzedały.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">W labie 03 prognoza "zawsze zero" wygrała w MAE na seriach części samochodowych. Jaki ma WAPE i bias?</div>
+        <ul class="quiz-options">
+          <li>WAPE bliski 0, bias 0.<span class="why">Błąd każdego dnia to cała sprzedaż tego dnia. Suma błędów równa się sumie sprzedaży.</span></li>
+          <li data-correct>WAPE równy 1, bias równy −1.<span class="why">Tak. Pomyłka równa się całej sprzedaży, a prognoza jest za niska o 100%. Dlatego w kursie model wybiera się po WAPE i sprawdza bias.</span></li>
+          <li>Nie da się policzyć, bo prognoza ma zera.<span class="why">Zera w prognozie nie przeszkadzają. Problem byłby tylko przy zerowej sumie sprzedaży.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Prognoza ma bias równy 0. Co to znaczy?</div>
+        <ul class="quiz-options">
+          <li>Jest bezbłędna.<span class="why">Bias mierzy tylko, czy błędy w górę i w dół się równoważą. Prognoza "400 w poniedziałek, 0 we wtorek" przy sprzedaży 200 i 200 ma bias 0 i WAPE 1.</span></li>
+          <li data-correct>Suma prognoz równa się sumie sprzedaży. O pojedynczych dniach nic nie mówi.<span class="why">Tak. Dlatego bias czyta się razem z WAPE: jeden mówi o kierunku, drugi o rozmiarze pomyłek.</span></li>
+          <li>Ma najmniejsze możliwe RMSE.<span class="why">RMSE zależy od rozmiaru pomyłek, nie od tego, czy się znoszą.</span></li>
+        </ul>
+      </div>
+
+      <p>Kurs ocenia modele po WAPE na dniach bez braków towaru i zawsze pokazuje obok bias. MAE i RMSE przydadzą się, gdy trenujesz model: funkcja straty to metryka, którą model minimalizuje (moduł 08).</p>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Udział dni bez braków</h3>
+
+      <p><code>stockouts</code> to macierz (serie, dni) z liczbą godzin bez towaru. Napisz <code>in_stock_share</code>, która dla każdej serii zwraca udział dni bez żadnej godziny braku. Bez pętli.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def in_stock_share(stockouts):
+    """Share of days with zero stockout hours, one value per row."""
+    ...
+
+
+stockouts = np.array([[0, 0, 3, 0], [5, 16, 0, 0]])
+print(in_stock_share(stockouts))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_got = in_stock_share(_np.array([[0, 0, 3, 0], [5, 16, 0, 0]]))
+assert isinstance(_got, _np.ndarray), "Wynik ma być tablicą NumPy."
+assert _got.shape == (2,), f"Jedna wartość na serię: kształt (2,). Jest {getattr(_got, 'shape', None)}."
+assert _np.allclose(_got, [0.75, 0.5]), f"Oczekiwano [0.75, 0.5], jest {_got}."
+assert _np.allclose(in_stock_share(_np.zeros((3, 5))), 1.0), "Bez braków udział wynosi 1."
+</script>
+      </div>
+
+      <h3>Standaryzacja kolumn</h3>
+
+      <p>Napisz <code>standardise</code>: od każdej kolumny odejmij jej średnią i podziel przez jej odchylenie standardowe. Kolumna stała (odchylenie 0) ma dać zera, a nie <code>NaN</code>. Przyda się w module 13, gdzie cechy o różnych skalach trafią do k-means.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def standardise(matrix):
+    """Scale every column to mean 0 and standard deviation 1; constant columns become 0."""
+    ...
+
+
+print(standardise(np.array([[1.0, 5.0], [3.0, 5.0]])))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_m = _np.array([[1.0, 10.0, 7.0], [2.0, 20.0, 7.0], [3.0, 60.0, 7.0]])
+_before = _m.copy()
+_s = standardise(_m)
+assert _s.shape == _m.shape, "Wynik ma mieć kształt wejścia."
+assert _np.allclose(_s.mean(axis=0), 0.0), "Średnia każdej kolumny po standaryzacji to 0. Czy odejmujesz średnie kolumn (axis=0)?"
+assert _np.allclose(_s[:, :2].std(axis=0), 1.0), "Odchylenie każdej niestałej kolumny to 1."
+assert _np.allclose(_s[:, 2], 0.0) and not _np.isnan(_s).any(), "Stała kolumna ma dać zera, bez NaN."
+assert _np.array_equal(_m, _before), "standardise zmieniło tablicę wejściową."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Wczytasz sprzedaż 2 648 serii z pliku Parquet prosto do tablic, ułożysz ją w macierz (serie, dni), napiszesz metryki w pakiecie i ocenisz trzy proste prognozy na ostatnim tygodniu, z maską dni bez braków towaru. Około 5 godzin.</p>
+      <p>Otwórz <code>labs/05-numpy/05-numpy.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -21,7 +21,7 @@ One rung per request, the lowest one that can unblock them. The same task again 
 
 ## Steps
 
-1. **Look before you speak.** Read the task's docstring, the learner's current code for it and the task's entry in `tutor/notes/NN.md`. Run `uv run course check <task>`. Done when you can say in one sentence where they are stuck: not started, wrong idea, right idea with a wrong detail, or working code that fails one requirement.
+1. **Look before you speak.** Read the task's specification (the docstring in the package, the task text in the lab notebook for labs 01-03, or the ticket in the lab README from module 14 on and in `shelfwise/tickets/` for module 17), the learner's current code for it and the task's entry in `tutor/notes/NN.md`. Run `uv run course check <task>`. Done when you can say in one sentence where they are stuck: not started, wrong idea, right idea with a wrong detail, or working code that fails one requirement.
 2. **Ask** what they tried and what they expected, unless they already said.
 3. **Give one rung.** Record the rung and the sticking point in `.course/progress.md`.
 4. **After rung 3**, build a worked example of the same technique on a different toy table with different column names, run it and show the output. Then tell them the reference is on the `solutions` branch and `uv run course catchup` exists. Whether to look is their call.

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz: część 3 | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="quiz-3">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">Quiz: część 3</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page narrow">
+  <main class="lecture">
+    <p class="kicker">Część 3: produkcja</p>
+    <h1>Quiz przekrojowy</h1>
+    <p class="lede">Dziesięć pytań z modułów 14-19. Każde łączy dwa tematy albo pyta o sytuację z pracy, a nie o definicję. Przy każdej odpowiedzi jest wyjaśnienie. Próbować możesz dowolnie wiele razy.</p>
+
+    <p>Jeśli przy którymś pytaniu zgadujesz, wróć do wykładu podanego w wyjaśnieniu albo zapytaj tutora: <code>/explain</code>.</p>
+
+    <section id="pytania">
+      <h2>Pytania</h2>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Nocny przebieg <code>freshcast train</code> kończy się kodem 2. Co robisz?</div>
+        <ul class="quiz-options">
+          <li>Ponawiasz przebieg za godzinę.<span class="why">Kod 2 to złe ustawienia albo argumenty. Za godzinę będą takie same (moduł 14).</span></li>
+          <li data-correct>Sprawdzasz plik ustawień i zmienne środowiskowe: coś jest źle wpisane albo brakuje pliku.<span class="why">Tak. Kod 1 znaczyłby błąd w trakcie działania i wtedy czytasz traceback w logu.</span></li>
+          <li>Zwiększasz pamięć maszyny.<span class="why">Brak pamięci dałby kod 1 z tracebackiem, a nie 2.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Funkcja w pakiecie łapie <code>except Exception</code>, loguje ostrzeżenie i zwraca pustą ramkę. Dlaczego to źle?</div>
+        <ul class="quiz-options">
+          <li>Bo logowanie ostrzeżeń jest wolne.<span class="why">Koszt logowania nie ma tu znaczenia.</span></li>
+          <li data-correct>Bo awaria udaje sukces: dalsze kroki liczą na pustych danych, a przebieg kończy się kodem 0.<span class="why">Tak. Wyjątki łapie się tam, gdzie wiadomo, co z nimi zrobić, a jedna jawna granica jest w punkcie wejścia (K4).</span></li>
+          <li>Bo pusta ramka zajmuje za dużo pamięci.<span class="why">Chodzi o ukrycie błędu, nie o pamięć.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Ponawianie wysyłki do S3 dostaje <code>403 AccessDenied</code>. Ile razy ponowić?</div>
+        <ul class="quiz-options">
+          <li>Trzy razy, z rosnącymi odstępami.<span class="why">Uprawnienia nie zmienią się za sekundę. Ponawianie tylko opóźnia porażkę (moduł 15).</span></li>
+          <li data-correct>Ani razu: zgłosić błąd od razu.<span class="why">Tak. Ponawia się błędy przejściowe: przekroczony czas, 503, SlowDown.</span></li>
+          <li>Do skutku.<span class="why">Pętla bez końca na błędzie, który nie minie, to zawieszony proces.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">W publicznym repozytorium był commit z kluczem dostępu do S3. Następny commit go usunął. Czy problem zniknął?</div>
+        <ul class="quiz-options">
+          <li>Tak, klucza nie ma już w kodzie.<span class="why">Historia gita pamięta każdy commit. Klucz jest do odczytania.</span></li>
+          <li data-correct>Nie: klucz trzeba unieważnić i wygenerować nowy, bo historia gita go pamięta.<span class="why">Tak. G4 zapobiega temu na wejściu. Po wycieku jedynym ratunkiem jest nowy klucz.</span></li>
+          <li>Wystarczy zrobić repozytorium prywatnym.<span class="why">Kto zdążył je sklonować, ma klucz. Unieważnienie jest konieczne.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q5" data-type="single">
+        <div class="quiz-q">W Dockerfile <code>COPY src ./src</code> stoi przed instalacją zależności. Co tracisz?</div>
+        <ul class="quiz-options">
+          <li data-correct>Cache warstw: każda zmiana w kodzie przebudowuje instalację wszystkich pakietów.<span class="why">Tak. Zależności instaluje się przed skopiowaniem kodu, z samych <code>pyproject.toml</code> i <code>uv.lock</code> (moduł 16).</span></li>
+          <li>Nic, Docker sam wykryje, co się zmieniło.<span class="why">Docker porównuje warstwy po kolei. Zmiana w warstwie <code>COPY</code> unieważnia wszystkie następne.</span></li>
+          <li>Obraz nie zbuduje się.<span class="why">Zbuduje się, tylko wolniej przy każdej zmianie.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q6" data-type="single">
+        <div class="quiz-q">Test przechodzi od marca do grudnia i pada w styczniu. Najlepsza poprawka?</div>
+        <ul class="quiz-options">
+          <li>Zmienić oczekiwany napis tak, żeby pasował w styczniu.<span class="why">Wtedy test padnie w innym miesiącu. Przyczyną jest zależność od zegara.</span></li>
+          <li data-correct>Przekazać datę jako argument i w teście podać stałą datę, także z przełomu roku.<span class="why">Tak (T4). Przełom roku staje się przypadkiem testowym zamiast pułapki (moduł 17).</span></li>
+          <li>Oznaczyć test jako niestabilny i ponawiać.<span class="why">Ten sam dzień da ten sam wynik. Ponawianie nic nie zmienia.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q7" data-type="single">
+        <div class="quiz-q">Nowy ticket: raport liczy się za długo. Pierwszy krok?</div>
+        <ul class="quiz-options">
+          <li>Przepisać podejrzaną pętlę na operacje wektorowe.<span class="why">Może to dobry kierunek, ale najpierw pomiar: intuicja o tym, co jest wolne, często się myli.</span></li>
+          <li data-correct>Zmierzyć profilerem, gdzie idzie czas.<span class="why">Tak. Potem poprawiasz jedno miejsce i mierzysz jeszcze raz.</span></li>
+          <li>Dodać więcej rdzeni.<span class="why">Jeśli czas rośnie kwadratowo, więcej rdzeni tylko odsunie problem.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q8" data-type="single">
+        <div class="quiz-q">Trening sieci na GPU kończy się <code>CUDA out of memory</code>. Co zmieniasz najpierw?</div>
+        <ul class="quiz-options">
+          <li data-correct>Mniejszy batch.<span class="why">Tak. Pamięć rośnie z rozmiarem batcha, a model zostaje ten sam (moduł 18).</span></li>
+          <li>Mniejszą sieć.<span class="why">Pomoże, ale zmienia to, czego się uczysz. Najpierw zmień coś, co modelu nie dotyka.</span></li>
+          <li>Przejście na float64.<span class="why">Podwoi zużycie pamięci.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q9" data-type="single">
+        <div class="quiz-q">Sieć GRU ma w backteście WAPE 0.390, LightGBM 0.377, a GRU trenuje się pięć razy dłużej i potrzebuje GPU. Co rekomendujesz?</div>
+        <ul class="quiz-options">
+          <li data-correct>LightGBM do produkcji, GRU jako kandydat do łączenia prognoz w kolejnym kroku.<span class="why">Tak. LightGBM wygrywa lub remisuje w każdym tygodniu i jest tańszy. Wybór modelu to wynik plus koszt (moduł 19).</span></li>
+          <li>GRU, bo sieci to przyszłość.<span class="why">Rekomendacja ma wynikać z liczb, nie z mody.</span></li>
+          <li>Średnią, bez sprawdzania.<span class="why">Łączenie modeli może pomóc, ale też trzeba je sprawdzić w backteście.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q10" data-type="single">
+        <div class="quiz-q">Backtest obiecywał przewagę 0.18 nad baseline'em, a test pokazał 0.02. Co robisz z testem?</div>
+        <ul class="quiz-options">
+          <li>Stroisz model, aż test pokaże więcej.<span class="why">Wtedy test staje się walidacją i jego wynik przestaje być uczciwy (C5).</span></li>
+          <li data-correct>Raportujesz obie liczby, opisujesz, czym tydzień testowy się różnił, i szukasz przyczyny rozbieżności.<span class="why">Tak. Rozbieżność to informacja o świecie, którą raport ma wyjaśnić.</span></li>
+          <li>Pomijasz test, bo to tylko jeden tydzień.<span class="why">To jedyny tydzień bez wpływu na decyzje. Nie wolno go pominąć.</span></li>
+        </ul>
+      </div>
+
+    </section>
+
+    <div class="next">
+      <h2>Koniec kursu</h2>
+      <p>To ostatni quiz. Jeśli punkt kontrolny 4 jest za Tobą, umiesz dostarczyć zmianę, która przejdzie review w zespole ML: od surowych danych przez uczciwą walidację do modelu w kontenerze i raportu, który ktoś inny sprawdzi.</p>
+      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

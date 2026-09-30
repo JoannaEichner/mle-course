@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz: część 2 | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="quiz-2">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">Quiz: część 2</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page narrow">
+  <main class="lecture">
+    <p class="kicker">Część 2: dane i ML</p>
+    <h1>Quiz przekrojowy</h1>
+    <p class="lede">Dziesięć pytań z modułów 05-13. Każde łączy dwa tematy albo pyta o sytuację z pracy, a nie o definicję. Przy każdej odpowiedzi jest wyjaśnienie. Próbować możesz dowolnie wiele razy.</p>
+
+    <p>Jeśli przy którymś pytaniu zgadujesz, wróć do wykładu podanego w wyjaśnieniu albo zapytaj tutora: <code>/explain</code>.</p>
+
+    <section id="pytania">
+      <h2>Pytania</h2>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Model A ma MAE 0.39, a prognoza "zawsze zero" ma MAE 0.35 na seriach, w których 80% dni to zera. Który wybierasz do zamawiania towaru?</div>
+        <ul class="quiz-options">
+          <li>"Zawsze zero", bo ma mniejszy błąd.<span class="why">MAE nagradza przewidywanie mediany, a mediana tych serii to zero. Taka prognoza nie zamówi niczego (moduły 03 i 05).</span></li>
+          <li data-correct>A, po sprawdzeniu WAPE i biasu: prognoza zerowa ma WAPE równe 1 i bias −100%.<span class="why">Tak. Metryka ma odpowiadać decyzji. Do zamawiania liczy się łączna ilość i kierunek błędu.</span></li>
+          <li>Żadną, bo obie mają MAE poniżej 0.5.<span class="why">Próg 0.5 nic tu nie znaczy. Porównujesz modele na tych samych wierszach i właściwej metryce.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Po <code>merge</code> tabeli sprzedaży z wymiarem produktów suma sprzedaży wzrosła o 3%. Co jest najbardziej prawdopodobne?</div>
+        <ul class="quiz-options">
+          <li data-correct>W wymiarze jakiś produkt występuje dwa razy, więc jego wiersze sprzedaży się zdublowały.<span class="why">Tak. <code>validate="many_to_one"</code> zamieniłoby to w błąd zamiast cichej zmiany sumy (moduł 07).</span></li>
+          <li>Części produktów brakuje w wymiarze.<span class="why">Brakujący klucz przy <code>how="left"</code> daje braki w kolumnach wymiaru, a przy <code>inner</code> zmniejsza sumę. Nie zwiększa jej.</span></li>
+          <li>Tak działa <code>merge</code>: zaokrągla wartości.<span class="why"><code>merge</code> niczego nie zaokrągla. Dodaje wiersze tylko wtedy, gdy klucz się powtarza.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Cecha "sprzedaż sprzed 7 dni" policzona jako <code>df["sale_amount"].shift(7)</code> na panelu posortowanym po serii i dacie. Co jest nie tak?</div>
+        <ul class="quiz-options">
+          <li>Nic, panel jest posortowany.<span class="why">Pierwsze 7 dni każdej serii dostaje wartości z końca poprzedniej serii (C1).</span></li>
+          <li data-correct>Brakuje <code>groupby</code> po serii: początek każdej serii czyta koniec poprzedniej.<span class="why">Tak. <code>df.groupby(SERIES_KEY)["sale_amount"].shift(7)</code>.</span></li>
+          <li>Lag 7 jest za krótki na horyzont 7 dni.<span class="why">Lag 7 przy horyzoncie 7 jest dozwolony: znany dla każdego dnia horyzontu.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">Model prognozy dziennej ma WAPE 0.03 na walidacji. Pierwszy krok?</div>
+        <ul class="quiz-options">
+          <li>Wdrożenie, zanim wynik się zestarzeje.<span class="why">Prognoza świeżej żywności z dokładnością 97% na tydzień naprzód to objaw, nie sukces.</span></li>
+          <li data-correct>Sprawdzenie, która cecha robi robotę, i czy jest znana w chwili prognozy.<span class="why">Tak. W module 08 taki wynik dawała sprzedaż w godzinach z towarem z tego samego dnia (C2).</span></li>
+          <li>Strojenie, żeby zejść jeszcze niżej.<span class="why">Stroisz model, któremu jeszcze nie wolno ufać.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q5" data-type="single">
+        <div class="quiz-q">Target encoding seria × dzień tygodnia dopasowany na treningu i walidacji poprawia WAPE walidacji z 0.399 na 0.361. Co mówi test?</div>
+        <ul class="quiz-options">
+          <li>Też się poprawia, bo cecha niesie prawdziwą informację.<span class="why">W labie 09 test pogarsza się z 0.411 na 0.452.</span></li>
+          <li data-correct>Pogarsza się: kod wiersza walidacji zawierał część jego własnego celu.<span class="why">Tak. Koder dopasowuje się tylko na treningu (C4), a i wtedy trzeba uważać na kod liczony z tych samych wierszy.</span></li>
+          <li>Nie da się powiedzieć bez tuningu.<span class="why">To nie kwestia ustawień, tylko tego, co cecha wie o odpowiedzi.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q6" data-type="single">
+        <div class="quiz-q">Tydzień walidacji jest o 6 °C cieplejszy niż średnia treningu, a połowa jego dni cieplejsza niż jakikolwiek dzień treningu. Który model jest bardziej narażony?</div>
+        <ul class="quiz-options">
+          <li>LightGBM, bo drzewa nie ekstrapolują.<span class="why">Brak ekstrapolacji to tu zaleta: drzewo zostaje przy najcieplejszym liściu, jaki zna.</span></li>
+          <li data-correct>MLP, bo sieć przedłuża zależność poza zakres treningu.<span class="why">Tak. W labie 13 usunięcie cech pogody zamyka część luki między siecią a drzewami na mniejszym profilu.</span></li>
+          <li>Oba tak samo.<span class="why">Modele różnie zachowują się poza zakresem danych. To jedna z najważniejszych różnic między nimi.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q7" data-type="single">
+        <div class="quiz-q">Losowy 5-fold daje WAPE 0.339, a backtest po czasie tego samego modelu 0.379. Któremu wynikowi wierzysz?</div>
+        <ul class="quiz-options">
+          <li>0.339, bo ma więcej foldów.<span class="why">Liczba foldów nie naprawi wycieku: losowy podział uczy na dniach sąsiadujących z walidowanymi (moduł 11).</span></li>
+          <li data-correct>0.379, bo odtwarza sytuację prognozy: trening tylko na przeszłości.<span class="why">Tak (C3).</span></li>
+          <li>Średniej obu.<span class="why">Średnia z pomiaru uczciwego i przeciekającego nadal przecieka.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q8" data-type="single">
+        <div class="quiz-q">Najlepsza z 15 prób Optuny ma WAPE 0.375 w backteście. Jaki wynik spodziewasz się zobaczyć na świeżych danych?</div>
+        <ul class="quiz-options">
+          <li>Dokładnie 0.375.<span class="why">Najlepsza z wielu zaszumionych prób jest wybrana między innymi dlatego, że szum jej sprzyjał.</span></li>
+          <li data-correct>Raczej trochę gorszy. Uczciwą ocenę daje test, którego nie użyłeś do żadnej decyzji.<span class="why">Tak. To samo dotyczy liczby drzew wybranej przez early stopping.</span></li>
+          <li>Na pewno lepszy, bo model uczy się na większej liczbie danych.<span class="why">Więcej danych może pomóc, ale nie usuwa optymizmu wyboru.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q9" data-type="single">
+        <div class="quiz-q">Fałszywy alarm o braku kosztuje 1, przegapiony brak kosztuje 5, prawdopodobieństwa są skalibrowane. Od jakiego prawdopodobieństwa opłaca się alarmować?</div>
+        <ul class="quiz-options">
+          <li>0.5.<span class="why">0.5 zakłada, że oba błędy kosztują tyle samo.</span></li>
+          <li data-correct>Około 0.17, czyli 1 / (1 + 5).<span class="why">Tak. Alarm opłaca się, gdy <code>p · 5 > (1 − p) · 1</code> (moduł 12).</span></li>
+          <li>0.83, czyli 5 / 6.<span class="why">To próg dla kosztów odwrotnych: gdyby droższy był fałszywy alarm.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q10" data-type="single">
+        <div class="quiz-q">Segment serii jako cecha poprawia WAPE o 0.001. Trzy kolumny losowych etykiet zmieniają WAPE o 0.0005-0.0012. Co wnioskujesz?</div>
+        <ul class="quiz-options">
+          <li>Segment pomaga, bo poprawił wynik.<span class="why">Poprawa jest tej samej wielkości co zmiany od kolumny szumu.</span></li>
+          <li data-correct>Nie wiadomo, czy pomaga: efekt jest w granicach szumu, który daje kontrola.<span class="why">Tak. Bez kontroli ta sama liczba wyglądałaby jak sukces (moduł 13).</span></li>
+          <li>Segment szkodzi.<span class="why">Na to też nie ma dowodu. Efekt jest za mały, żeby rozstrzygnąć w którąkolwiek stronę.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Dalej</h2>
+      <p>Część 3 zamienia notebooki w oprogramowanie: pipeline z konfiguracją i CLI, dane w chmurze, Docker i CI, praca w cudzym kodzie, sieć neuronowa na GPU i capstone.</p>
+      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

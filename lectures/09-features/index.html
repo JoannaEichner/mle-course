@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>09 · Feature engineering | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="09">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">09 · Feature engineering</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 09 · Część 2: dane i ML</p>
+    <h1>Feature engineering</h1>
+    <p class="lede">Model widzi świat tylko przez cechy. Dobra cecha niesie informację, której model sam by nie znalazł. Zła cecha niesie informację, której w chwili prognozy nie będzie. Ten moduł dotyczy obu rodzajów i tego, jak je odróżnić, zanim zrobi to produkcja.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduły 07 i 08</li>
+      <li><b>Potem:</b> <a href="../../labs/09-features/README.md">lab 09</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>budować lagi i okna, które są znane w chwili prognozy na cały horyzont,</li>
+      <li>kodować kalendarz: dzień tygodnia, cykliczność, święta,</li>
+      <li>kodować kategorie na kilka sposobów i wiedzieć, który przecieka,</li>
+      <li>składać przekształcenia w <code>Pipeline</code>, dopasowany tylko na treningu,</li>
+      <li>pisać cechy jako czyste funkcje z jawnymi zależnościami,</li>
+      <li>rozpoznać popyt ocenzurowany brakiem towaru i sprawdzić metodę jego korekty.</li>
+    </ul>
+
+    <section id="horyzont">
+      <h2>Cechy znane w chwili prognozy</h2>
+
+      <p>Prognoza na przyszły tydzień powstaje dziś wieczorem. Każda cecha musi mieć wartość dla każdego z 7 dni horyzontu, licząc tylko z tego, co wiesz dziś. Stąd dwie zasady dla cech z historii sprzedaży:</p>
+      <ul>
+        <li><strong>lag</strong> nie krótszy niż horyzont: sprzedaż sprzed 7, 14, 21 dni,</li>
+        <li><strong>okno</strong> kończy się co najmniej 7 dni przed prognozowanym dniem: średnia z 28 dni kończących się tydzień wcześniej.</li>
+      </ul>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"series": ["a"] * 4 + ["b"] * 4, "sale": [1, 2, 3, 4, 10, 20, 30, 40]})
+df["lag_2"] = df.groupby("series")["sale"].shift(2)
+print(df["lag_2"].tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[nan, nan, 1.0, 2.0, 3.0, 4.0, 10.0, 20.0]</code><span class="why">Tak działa <code>shift</code> bez <code>groupby</code>: wartości serii a przeciekają do b.</span></li>
+          <li data-correct><code>[nan, nan, 1.0, 2.0, nan, nan, 10.0, 20.0]</code><span class="why">Tak. W każdej serii pierwsze dwa dni nie mają wartości sprzed dwóch dni.</span></li>
+          <li><code>[3.0, 4.0, nan, nan, 30.0, 40.0, nan, nan]</code><span class="why">To <code>shift(-2)</code>: wartość z przyszłości. W cechach nigdy.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q1" data-type="multi">
+        <div class="quiz-q">Horyzont to 7 dni. Które cechy są dozwolone? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Sprzedaż sprzed 14 dni.<span class="why">Tak. Znana dla każdego dnia horyzontu.</span></li>
+          <li>Średnia sprzedaży z 7 dni kończących się wczoraj.<span class="why">Dla siódmego dnia horyzontu "wczoraj" to szósty dzień, jeszcze nieznany.</span></li>
+          <li data-correct>Średnia z 28 dni kończących się 7 dni przed prognozowanym dniem.<span class="why">Tak. Okno kończy się w przeszłości dla całego horyzontu.</span></li>
+          <li data-correct>Liczba dni do najbliższego święta.<span class="why">Tak. Kalendarz jest znany z góry.</span></li>
+          <li>Temperatura tego dnia, zmierzona.<span class="why">Zmierzona jest znana po fakcie. W produkcji możesz mieć tylko prognozę pogody, a model uczony na pomiarach dostanie coś innego.</span></li>
+        </ul>
+      </div>
+
+      <p>W labie funkcje lagów najpierw sprawdzają horyzont, a dopiero potem liczą. Lag 1 przy horyzoncie 7 to <code>ValueError</code>, a nie cicha cecha, która w walidacji wygląda świetnie.</p>
+    </section>
+
+    <section id="kalendarz">
+      <h2>Kalendarz</h2>
+
+      <p>Sprzedaż świeżych produktów ma silny rytm tygodnia. Dzień tygodnia jako liczba 0-6 wystarczy drzewom (moduł 10), które dzielą oś w dowolnym miejscu. Model liniowy widzi jednak, że niedziela (6) jest "najdalej" od poniedziałku (0), choć to sąsiedzi. <strong>Kodowanie cykliczne</strong> kładzie dni na okręgu:</p>
+
+<pre><code class="language-python">angle = 2 * np.pi * dow / 7
+dow_sin, dow_cos = np.sin(angle), np.cos(angle)</code></pre>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+dow = np.array([0, 6])
+angle = 2 * np.pi * dow / 7
+points = np.c_[np.sin(angle), np.cos(angle)]
+print(abs(dow[0] - dow[1]), round(float(np.linalg.norm(points[0] - points[1])), 2))</code></pre>
+        <ul class="quiz-options">
+          <li><code>6 6.0</code><span class="why">Punkty na okręgu o promieniu 1 są od siebie najwyżej o 2.</span></li>
+          <li data-correct><code>6 0.87</code><span class="why">Tak. Jako liczby odległość to 6, na okręgu niedziela jest tak blisko poniedziałku jak każde dwa sąsiednie dni.</span></li>
+          <li><code>6 2.0</code><span class="why">2 to odległość punktów po przeciwnych stronach okręgu, czyli dni oddalonych o pół tygodnia.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Święta</strong> bierzesz z gotowego kalendarza (pakiet <code>holidays</code>), a nie z danych: kalendarz zna też przyszłe święta. Obok flagi "to jest święto" przydaje się "ile dni do najbliższego święta", bo zakupy przed świętem rosną, zanim święto nadejdzie.</p>
+    </section>
+
+    <section id="kategorie">
+      <h2>Kategorie</h2>
+
+      <p>Identyfikator sklepu i produktu to liczby, ale nie wielkości: produkt 300 nie jest "trzy razy większy" od produktu 100. Model musi dostać kategorię w formie, która tego nie sugeruje.</p>
+
+      <table>
+        <thead><tr><th>Sposób</th><th>Jak</th><th>Kiedy</th></tr></thead>
+        <tbody>
+          <tr><td>porządkowe</td><td>kategoria → liczba całkowita</td><td>drzewa, które i tak dzielą oś; albo kategorie z naturalnym porządkiem</td></tr>
+          <tr><td>one-hot</td><td>osobna kolumna 0/1 na każdą kategorię</td><td>modele liniowe, niewiele kategorii</td></tr>
+          <tr><td>target encoding</td><td>kategoria → średni cel w tej kategorii</td><td>wiele kategorii, ostrożnie (niżej)</td></tr>
+          <tr><td>natywne kategorie</td><td>model sam grupuje kategorie</td><td>LightGBM, moduł 10</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Target encoding i jego wyciek</h3>
+
+      <p>Target encoding zamienia grupę na średnią celu w tej grupie. To silna cecha, bo niesie wprost informację o celu. Właśnie dlatego łatwo z nią przesadzić:</p>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+train = pd.DataFrame({"product": ["a", "a", "b"], "sale": [2.0, 4.0, 9.0]})
+encoded = train.groupby("product")["sale"].transform("mean")
+print(encoded.tolist())</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>[3.0, 3.0, 9.0]</code><span class="why">Tak. Produkt b ma jeden wiersz, więc jego kod to dokładnie jego cel. Model uczony na takich wierszach nauczy się ufać kodowi bardziej, niż on na to zasługuje na nowych danych.</span></li>
+          <li><code>[3.0, 3.0, 5.0]</code><span class="why">5.0 to średnia ogólna. Tę dostanie dopiero grupa nieznana z treningu.</span></li>
+          <li><code>[5.0, 5.0, 5.0]</code><span class="why"><code>transform("mean")</code> w grupie liczy średnią każdej grupy osobno.</span></li>
+        </ul>
+      </div>
+
+      <p>Dwa poziomy tego samego problemu:</p>
+      <ul>
+        <li><strong>koder dopasowany na walidacji</strong>: wiersz walidacji ma w swoim kodzie część własnego celu. Wynik walidacji się poprawia, bo model częściowo widzi odpowiedź. Łamie C4,</li>
+        <li><strong>koder dopasowany na tych samych wierszach, na których uczysz model</strong>: formalnie uczciwe wobec walidacji, ale w treningu każdy kod zawiera cel swojego wiersza. Model przecenia cechę. Pomaga wygładzanie w stronę średniej ogólnej albo kodowanie "poza fałdą": kod wiersza liczony bez tego wiersza.</li>
+      </ul>
+
+      <div class="callout story">
+        <span class="label">Z labu</span>
+        <p>Kodowanie seria × dzień tygodnia dopasowane na treningu i walidacji poprawia WAPE walidacji z 0.399 na 0.361. Na teście pogarsza z 0.411 na 0.452. Walidacja, która zgodnie z regułami miała chronić przed złą decyzją, poleciła najgorszy wariant.</p>
+      </div>
+
+      <h3>Pipeline</h3>
+
+      <p>Każde przekształcenie, które uczy się czegoś z danych (skaler, koder, imputacja), dopasowuje się tylko na treningu. <code>Pipeline</code> i <code>ColumnTransformer</code> z scikit-learn wiążą przekształcenia z modelem, więc jedno <code>fit</code> dopasowuje wszystko na tych samych wierszach:</p>
+
+<pre><code class="language-python">from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+prepare = ColumnTransformer([
+    ("numbers", StandardScaler(), ["sale_lag_7", "mean_28_lag_7", "discount_filled"]),
+    ("stores", OneHotEncoder(handle_unknown="ignore"), ["store_id"]),
+])
+model = make_pipeline(prepare, Ridge(alpha=1.0))
+model.fit(train[columns], train["sale_amount"])      # skaler i koder widzą tylko trening
+forecast = model.predict(valid[columns])</code></pre>
+    </section>
+
+    <section id="rejestr">
+      <h2>Cechy jako czyste funkcje</h2>
+
+      <p>Cechę trzeba policzyć dwa razy: na historii do treningu i na przyszłym tygodniu do prognozy. Jeśli oba miejsca mają osobny kod, prędzej czy później się rozjadą, a model dostanie w produkcji coś innego niż w treningu. Rozwiązanie: każda cecha to czysta funkcja z ramki na kolumnę, zarejestrowana z listą kolumn, których potrzebuje:</p>
+
+<pre><code class="language-python">@registry.register("dow", requires=["dt"])
+def _dow(df: pd.DataFrame) -> pd.Series:
+    return calendar.day_of_week(df)
+
+
+@registry.register("dow_sin", requires=["dow"])
+def _dow_sin(df: pd.DataFrame) -> pd.Series:
+    return calendar.cyclical(df["dow"], 7)[0]</code></pre>
+
+      <p>Z deklaracji <code>requires</code> powstaje graf. Kod, który buduje zestaw cech, przechodzi ten graf tak, żeby każda cecha liczyła się po wszystkim, czego potrzebuje. To sortowanie topologiczne, napiszesz je w labie. Trening i prognoza wołają ten sam kod z tą samą listą nazw.</p>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Cecha <code>a</code> wymaga <code>b</code>, <code>b</code> wymaga <code>c</code>, a <code>c</code> wymaga <code>a</code>. Co powinien zrobić kod budujący cechy?</div>
+        <ul class="quiz-options">
+          <li>Policzyć w kolejności rejestracji.<span class="why">Każda z trzech cech potrzebuje innej, której jeszcze nie ma. Któraś dostałaby brakującą kolumnę.</span></li>
+          <li data-correct>Zgłosić błąd, który wskazuje cykl.<span class="why">Tak. Cykl to błąd w definicjach cech. Nie da się go rozwiązać kolejnością liczenia.</span></li>
+          <li>Pominąć te trzy cechy i policzyć resztę.<span class="why">Cichy brak cech to błąd, który wyjdzie dopiero w modelu, daleko od przyczyny.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="popyt">
+      <h2>Popyt ocenzurowany</h2>
+
+      <p>Sprzedaż to nie popyt. Gdy towaru zabrakło o 14:00, sprzedaż dnia pokazuje tylko popyt do 14:00. Takie dane są <strong>ocenzurowane</strong>: prawdziwa wartość jest co najmniej taka, ale nie wiesz, o ile większa. W FreshRetailNet braki dotyczą około 40% dni.</p>
+
+      <p>Model uczony na sprzedaży dni z brakami uczy się niższego popytu, niż był. Są dwa podejścia:</p>
+      <ul>
+        <li><strong>korekta</strong>: oszacuj popyt z godzin, w których towar był. Jeśli zwykle 60% sprzedaży dnia przypada na godziny do 14:00, popyt ≈ sprzedaż / 0.6,</li>
+        <li><strong>wykluczenie</strong>: ucz tylko na dniach bez braków, gdzie sprzedaż równa się popytowi.</li>
+      </ul>
+
+      <p>Korekta brzmi lepiej, bo wykorzystuje więcej danych. W labie sprawdzisz ją dwa razy. W symulacji, na dniach bez braków ze sztucznym brakiem od losowej godziny, usuwa obciążenie prawie do zera. Jako cel treningu na prawdziwych danych zawyża prognozy, a wykluczenie wygrywa.</p>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Dlaczego korekta działa w symulacji, a na prawdziwych danych zawyża?</div>
+        <ul class="quiz-options">
+          <li>Symulacja miała za mało dni.<span class="why">Symulacja objęła prawie sto tysięcy dni. To nie kwestia wielkości próby.</span></li>
+          <li data-correct>Symulacja losowała, kiedy zaczyna się brak. Prawdziwe braki zdarzają się w dni wysokiego popytu, które mają inny profil godzinowy.<span class="why">Tak. Metoda była poprawna dla świata, który symulacja założyła. Prawdziwy świat miał inne założenia. Symulacja sprawdza metodę tylko w granicach swoich założeń.</span></li>
+          <li>Model nie umie uczyć się na popycie.<span class="why">Model uczy się na tym, co mu dasz. Problem leży w tym, jak powstał cel.</span></li>
+        </ul>
+      </div>
+
+      <p>Wykluczenie ma własną wadę: dni z brakami to często dni wysokiego popytu, więc model uczony bez nich też może trochę zaniżać. Kurs zostaje przy wykluczeniu, bo wygrywa w pomiarze. Tak podejmuje się decyzje o danych: dwie metody, jeden pomiar, prostsza wygrywa, jeśli nie przegrywa.</p>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Lag z kontrolą horyzontu</h3>
+
+      <p>Napisz <code>horizon_lag</code>: lag kolumny w obrębie serii. Jeśli lag jest krótszy niż horyzont, <code>ValueError</code>.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import pandas as pd
+
+
+def horizon_lag(df, column, lag, horizon):
+    """Value of `column` from `lag` rows earlier in the same series; lag >= horizon."""
+    ...
+
+
+df = pd.DataFrame({"series": ["a", "a", "a", "b", "b", "b"], "sale": [1.0, 2.0, 3.0, 7.0, 8.0, 9.0]})
+print(horizon_lag(df, "sale", 2, horizon=2).tolist())
+</script>
+        <script type="text/x-python" data-role="test">
+import pandas as _pd
+import math as _math
+_df = _pd.DataFrame({"series": ["a", "a", "a", "b", "b", "b"], "sale": [1.0, 2.0, 3.0, 7.0, 8.0, 9.0]})
+_got = horizon_lag(_df, "sale", 2, horizon=2).tolist()
+assert [None if _math.isnan(v) else v for v in _got] == [None, None, 1.0, None, None, 7.0], f"Lag 2 w obrębie serii: [nan, nan, 1, nan, nan, 7]. Jest {_got}."
+try:
+    horizon_lag(_df, "sale", 1, horizon=2)
+except ValueError:
+    pass
+else:
+    raise AssertionError("Lag 1 przy horyzoncie 2 ma dać ValueError.")
+</script>
+      </div>
+
+      <h3>Target encoding dopasowany na treningu</h3>
+
+      <p>Napisz <code>target_encode(train, other, group, target)</code>: średnia celu w grupie liczona tylko na <code>train</code>, zwrócona dla wierszy <code>other</code>. Grupa nieznana w treningu dostaje średnią ogólną treningu.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import pandas as pd
+
+
+def target_encode(train, other, group, target):
+    """Mean `target` per `group` value, learned on `train`, for the rows of `other`."""
+    ...
+
+
+train = pd.DataFrame({"product": ["a", "a", "b"], "sale": [2.0, 4.0, 9.0]})
+other = pd.DataFrame({"product": ["b", "a", "c"]})
+print(target_encode(train, other, "product", "sale").tolist())
+</script>
+        <script type="text/x-python" data-role="test">
+import pandas as _pd
+_train = _pd.DataFrame({"product": ["a", "a", "b"], "sale": [2.0, 4.0, 9.0]})
+_other = _pd.DataFrame({"product": ["b", "a", "c"]}, index=[7, 8, 9])
+_got = target_encode(_train, _other, "product", "sale")
+assert list(_got) == [9.0, 3.0, 5.0], f"Oczekiwano [9, 3, 5]: b i a z treningu, c nieznane dostaje średnią ogólną 5. Jest {list(_got)}."
+assert list(_got.index) == [7, 8, 9], "Wynik ma mieć indeks wierszy other."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Napiszesz cechy kalendarza, lagi pilnujące horyzontu, rejestr z sortowaniem zależności, korektę popytu i target encoding. Trzy eksperymenty pokażą, że korekta z symulacji zawyża na prawdziwych danych, a kodowanie dopasowane na walidacji ją oszukuje. Około 7 godzin.</p>
+      <p>Otwórz <code>labs/09-features/09-features.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

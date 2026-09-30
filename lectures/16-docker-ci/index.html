@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>16 · Docker i CI | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="16">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">16 · Docker i CI</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 16 · Część 3: produkcja</p>
+    <h1>Docker i CI</h1>
+    <p class="lede">Kod, który działa u Ciebie, musi działać też na serwerze, w CI i u kolegi. Kontener zamyka aplikację z całym jej środowiskiem, a ciągła integracja sprawdza każdą zmianę, zanim ktokolwiek zacznie ją czytać. Trzecia część tego modułu dotyczy ludzi: jak robić review, które pomaga, a nie tylko wyraża opinię.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 45 minut</li>
+      <li><b>Wymagane:</b> moduły 04, 14 i 15</li>
+      <li><b>Potem:</b> <a href="../../labs/16-docker-ci/README.md">lab 16</a> i punkt kontrolny 3, około 5 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>napisać Dockerfile dla aplikacji z uv: warstwy, cache, dwa etapy, zwykły użytkownik,</li>
+      <li>uruchomić kontener z zamontowanymi danymi i ustawieniami ze środowiska,</li>
+      <li>skonfigurować GitHub Actions i pre-commit tak, żeby sprawdzały to samo,</li>
+      <li>zrobić review według standardu: uwagi blokujące z konkretem, reszta jako sugestie.</li>
+    </ul>
+
+    <section id="docker">
+      <h2>Obraz i kontener</h2>
+
+      <p><strong>Obraz</strong> to zapis systemu plików z aplikacją i wszystkim, czego ona potrzebuje: system, Python, pakiety, kod. <strong>Kontener</strong> to uruchomiony obraz: proces odizolowany od reszty maszyny, z własnym widokiem plików. Z jednego obrazu uruchomisz wiele kontenerów, na laptopie, w CI i w chmurze, i wszystkie zobaczą to samo środowisko.</p>
+
+      <p>Obraz buduje się z <code>Dockerfile</code>, instrukcja po instrukcji. Każda instrukcja tworzy <strong>warstwę</strong>, a Docker zapamiętuje warstwy. Jeśli ani instrukcja, ani pliki, które kopiuje, się nie zmieniły, warstwa bierze się z cache. Dlatego kolejność ma znaczenie:</p>
+
+<pre><code class="language-text"># 1. Dependencies: rebuilt only when uv.lock or pyproject.toml change
+RUN --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project
+
+# 2. The code: rebuilt on every change in src/, but reuses layer 1
+COPY src ./src
+RUN uv sync --locked --no-editable</code></pre>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">W Dockerfile najpierw jest <code>COPY . .</code>, potem <code>uv sync --locked</code>. Zmieniasz jedną linię w <code>src/freshcast/cli.py</code>. Co się przebuduje?</div>
+        <ul class="quiz-options">
+          <li>Tylko warstwa z kodem.<span class="why">Warstwą z kodem jest tu <code>COPY . .</code>, a po niej jest instalacja wszystkich zależności.</span></li>
+          <li data-correct>Wszystko od <code>COPY . .</code>, łącznie z instalacją wszystkich pakietów.<span class="why">Tak. Zmiana dowolnego pliku unieważnia warstwę <code>COPY</code> i każdą po niej. Zależności instaluje się przed skopiowaniem kodu.</span></li>
+          <li>Nic, Docker wykryje, że zależności się nie zmieniły.<span class="why">Docker nie wie, co robi <code>uv sync</code>. Widzi tylko, że warstwa przed nim się zmieniła.</span></li>
+        </ul>
+      </div>
+
+      <h3>Dobre praktyki</h3>
+      <ul>
+        <li><strong>dwa etapy</strong>: w pierwszym instalujesz wszystko, do drugiego kopiujesz tylko gotowe środowisko. uv, cache i narzędzia budowania nie jadą do produkcji,</li>
+        <li><strong>zablokowane wersje</strong>: <code>uv sync --locked</code> instaluje dokładnie to, co w <code>uv.lock</code>, albo kończy się błędem,</li>
+        <li><strong>zwykły użytkownik</strong>: proces w kontenerze nie potrzebuje roota. Jeśli ktoś przejmie aplikację, nie przejmie z nią uprawnień administratora,</li>
+        <li><strong>bez danych i sekretów w obrazie</strong>: dane, ustawienia i artefakty montuje się przy uruchomieniu (<code>-v</code>), klucze przekazuje w zmiennych środowiskowych (<code>-e</code>). Obraz można pokazać każdemu,</li>
+        <li><strong><code>.dockerignore</code></strong>: bez niego do kontekstu budowania trafia <code>.git</code>, <code>.venv</code> i gigabajty danych.</li>
+      </ul>
+
+<pre><code class="language-bash">docker build -t freshcast .
+docker run --rm -v "$PWD":/work -e FRESHCAST_MODEL__ROUNDS=200 \
+    freshcast train --config configs/standard.yaml</code></pre>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Kolega kopiuje do obrazu katalog <code>data/</code> "żeby kontener miał dane pod ręką". Co jest nie tak?</div>
+        <ul class="quiz-options">
+          <li>Nic, to przyspiesza uruchomienie.<span class="why">Obraz rośnie o gigabajty, a każda nowa wersja danych wymaga nowego obrazu.</span></li>
+          <li data-correct>Obraz rośnie, wiąże kod z jedną wersją danych i może wynieść dane poza firmę razem z obrazem.<span class="why">Tak. Obraz to kod i środowisko. Dane montuje się przy uruchomieniu albo czyta z bucketu (moduł 15).</span></li>
+          <li>Docker nie pozwala kopiować danych.<span class="why">Pozwala. To zły pomysł, a nie zabronione polecenie.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="ci">
+      <h2>Ciągła integracja</h2>
+
+      <p>CI uruchamia sprawdzenia na czystej maszynie przy każdej zmianie. Czysta maszyna to ważne słowo: nie ma tam Twojego <code>.venv</code>, danych na dysku ani pakietu zainstalowanego ręcznie tydzień temu. Jeśli CI przechodzi, projekt da się postawić od zera.</p>
+
+<pre><code class="language-yaml">name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest</code></pre>
+
+      <p><strong>pre-commit</strong> uruchamia te same narzędzia przed commitem, na zmienionych plikach. Po co oba? pre-commit daje odpowiedź w sekundę, ale da się go pominąć (<code>--no-verify</code>) albo nie zainstalować. CI jest ostatnią linią obrony i nie da się go obejść. Oba biorą narzędzia z tego samego <code>uv.lock</code>, więc nie spierają się o wersję ruff.</p>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">CI na Twoim pull requeście jest czerwone na kroku <code>pytest</code>, a lokalnie testy przechodzą. Co sprawdzasz najpierw?</div>
+        <ul class="quiz-options">
+          <li>Czy da się wyłączyć ten krok w CI.<span class="why">Czerwone CI mówi, że projekt nie działa na czystej maszynie. Wyłączenie kroku ukrywa problem.</span></li>
+          <li data-correct>Log kroku: który test i dlaczego. Częste przyczyny to plik obecny tylko u Ciebie, dane, sieć albo data w teście.<span class="why">Tak. Test zależny od lokalnego stanu łamie T4. CI właśnie to wykrył.</span></li>
+          <li>Czy ktoś inny zepsuł <code>main</code>.<span class="why">Możliwe, ale log powie to szybciej niż zgadywanie.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="review">
+      <h2>Review</h2>
+
+      <p>Review to nie ocena autora, tylko sprawdzenie zmiany, zanim trafi do wspólnego kodu. Dobre review:</p>
+      <ul>
+        <li><strong>rozdziela uwagi blokujące od reszty</strong>. Blokujące to złamane reguły z oznaczeniem "blokuje", błąd poprawności albo wyciek. Reszta to sugestie, które autor może przyjąć albo nie,</li>
+        <li><strong>jest konkretne</strong>: miejsce, reguła i przykład danych, na których kod zadziała źle. "Ten rolling miesza serie" jest słabe. "Na panelu dwóch serii pierwsza średnia serii B obejmuje ostatnie 6 dni serii A, <code>promo.py:18</code>, C1" jest mocne,</li>
+        <li><strong>pyta, zamiast przepisywać</strong>. Kod poprawia autor, a recenzent pokazuje problem,</li>
+        <li><strong>widzi też dobre rzeczy</strong>. Jedno konkretne zdanie o tym, co jest zrobione dobrze, pomaga powtórzyć to następnym razem.</li>
+      </ul>
+
+      <div class="quiz" id="q4" data-type="multi">
+        <div class="quiz-q">Które uwagi do pull requesta są blokujące według standardu kursu? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Klucz dostępu do S3 wpisany w kod.<span class="why">Tak. G4: sekrety nie trafiają do repozytorium. Klucz trzeba też unieważnić, bo historia gita go pamięta.</span></li>
+          <li data-correct>Cecha liczona z <code>sales_in_stock</code> tego samego dnia.<span class="why">Tak. C2: cecha musi być znana w chwili prognozy.</span></li>
+          <li>Zmienna nazwana <code>df2</code>.<span class="why">Słaba nazwa to dobra sugestia, ale nie blokada.</span></li>
+          <li data-correct><code>except Exception: pass</code> w funkcji zapisującej wynik.<span class="why">Tak. K4: połknięty wyjątek ukrywa awarię, a funkcja udaje sukces.</span></li>
+          <li data-correct>Nowa funkcja publiczna bez testu.<span class="why">Tak. T1 blokuje.</span></li>
+        </ul>
+      </div>
+
+      <p>Gdy review dostajesz, pamiętaj, że uwagi dotyczą kodu, a nie Ciebie. Pytanie recenzenta to często sygnał, że kod nie mówi sam za siebie. Czasem lepiej dopisać komentarz albo zmienić nazwę, niż wyjaśniać w wątku.</p>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Przegląd Dockerfile</h3>
+
+      <p>Napisz <code>dockerfile_problems(text)</code>: lista problemów w treści Dockerfile. Szukaj trzech: brak <code>USER</code> (kontener jako root), <code>uv sync</code> bez <code>--locked</code>, kopiowanie katalogu <code>data</code>. Zwracaj krótkie nazwy: <code>"root"</code>, <code>"unlocked"</code>, <code>"data"</code>, w tej kolejności.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+def dockerfile_problems(text):
+    """Names of the problems found: 'root', 'unlocked', 'data', in that order."""
+    ...
+
+
+print(dockerfile_problems("FROM python:3.12-slim\nCOPY . .\nRUN uv sync\nCOPY data /app/data\n"))
+</script>
+        <script type="text/x-python" data-role="test">
+_bad = "FROM python:3.12-slim\nCOPY . .\nRUN uv sync\nCOPY data /app/data\n"
+assert dockerfile_problems(_bad) == ["root", "unlocked", "data"], f"Oczekiwano ['root', 'unlocked', 'data']. Jest {dockerfile_problems(_bad)}."
+_good = "FROM python:3.12-slim\nRUN uv sync --locked --no-editable\nRUN useradd app\nUSER app\nENTRYPOINT [\"freshcast\"]\n"
+assert dockerfile_problems(_good) == [], f"Poprawny Dockerfile nie ma problemów. Jest {dockerfile_problems(_good)}."
+assert dockerfile_problems("FROM x\nUSER app\nRUN uv sync --frozen\n") == ["unlocked"], "--frozen to nie --locked: nie sprawdza zgodności locka z pyproject.toml."
+</script>
+      </div>
+
+      <h3>Sprawdzenie workflow</h3>
+
+      <p>Napisz <code>missing_checks(workflow)</code>: dla workflow wczytanego do słownika (tak jak robi <code>yaml.safe_load</code>) zwróć posortowaną listę narzędzi spośród <code>mypy</code>, <code>pytest</code>, <code>ruff</code>, których żaden krok <code>run</code> nie uruchamia.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+def missing_checks(workflow):
+    """Sorted names among mypy, pytest, ruff that no `run` step mentions."""
+    ...
+
+
+workflow = {"jobs": {"checks": {"steps": [{"uses": "actions/checkout@v7"}, {"run": "uv run ruff check ."}]}}}
+print(missing_checks(workflow))
+</script>
+        <script type="text/x-python" data-role="test">
+_wf = {"on": ["pull_request"], "jobs": {"checks": {"steps": [{"uses": "actions/checkout@v7"}, {"run": "uv run ruff check ."}]}}}
+assert missing_checks(_wf) == ["mypy", "pytest"], f"Brakuje mypy i pytest. Jest {missing_checks(_wf)}."
+_full = {"jobs": {"a": {"steps": [{"run": "uv run ruff check ."}, {"run": "uv run mypy"}]}, "b": {"steps": [{"run": "uv run pytest -q"}]}}}
+assert missing_checks(_full) == [], "Kroki mogą być w różnych zadaniach (jobs)."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Dockerfile, workflow CI i pre-commit, a potem review cudzego pull requesta z ukrytymi problemami. Na koniec punkt kontrolny 3 z zielonym CI. Około 5 godzin.</p>
+      <p>Zacznij od <code>labs/16-docker-ci/README.md</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

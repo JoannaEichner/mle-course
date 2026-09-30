@@ -305,6 +305,8 @@
     const namespace = py.globals.get("dict")();
     try {
       for (const code of codes) {
+        // Lectures 05 onwards import numpy; Pyodide fetches it on first use.
+        await py.loadPackagesFromImports(code, { messageCallback: () => {} });
         await py.runPythonAsync(code, { globals: namespace });
       }
       return { output, error: null };

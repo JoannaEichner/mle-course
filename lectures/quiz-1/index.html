@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz: część 1 | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="quiz-1">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">Quiz: część 1</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page narrow">
+  <main class="lecture">
+    <p class="kicker">Część 1: inżynieria w Pythonie</p>
+    <h1>Quiz przekrojowy</h1>
+    <p class="lede">Dziesięć pytań z modułów 01-04. Każde łączy dwa tematy albo pyta o sytuację z pracy, a nie o definicję. Przy każdej odpowiedzi jest wyjaśnienie. Próbować możesz dowolnie wiele razy.</p>
+
+    <p>Jeśli przy którymś pytaniu zgadujesz, wróć do wykładu podanego w wyjaśnieniu albo zapytaj tutora: <code>/explain</code>.</p>
+
+    <section id="pytania">
+      <h2>Pytania</h2>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Funkcja <code>clean(values)</code> robi <code>values.sort()</code> i zwraca <code>values[1:-1]</code>. Wołasz <code>trimmed = clean(sales)</code>. Co się stało z <code>sales</code>?</div>
+        <ul class="quiz-options">
+          <li>Nic, bo funkcja zwraca nową listę.<span class="why">Wycinek jest nową listą, ale <code>sort()</code> wcześniej posortował listę, którą dostała funkcja. To ta sama lista co <code>sales</code> (moduł 01).</span></li>
+          <li data-correct>Jest posortowana.<span class="why">Tak. Parametr i argument to dwie nazwy jednego obiektu. Funkcja powinna użyć <code>sorted(values)</code>.</span></li>
+          <li>Straciła pierwszy i ostatni element.<span class="why">Wycinek niczego nie usuwa z oryginału. Tworzy nową listę.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Liczysz średnią sprzedaż ze znanych miesięcy: <code>known = [v for v in values if v]</code>. Dane: <code>[0, 4, None, 0, 2]</code>. Co wychodzi i co jest źle?</div>
+        <ul class="quiz-options">
+          <li data-correct>3.0, bo zera wypadły razem z brakiem. Prawidłowo 1.5.<span class="why">Tak. <code>if v</code> odrzuca wszystko, co fałszywe, także zero. Warunek to <code>v is not None</code> (moduł 01).</span></li>
+          <li>1.5, wszystko w porządku.<span class="why">Zero jest fałszywe, więc wypada z listy razem z <code>None</code>. Zostają 4 i 2.</span></li>
+          <li><code>TypeError</code> przez <code>None</code>.<span class="why">Warunek odfiltrowuje <code>None</code> przed sumowaniem, więc błędu nie ma. Jest za to cichy błąd w wyniku.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q"><code>series = read_series(path)</code> to generator. Liczysz <code>n = sum(1 for _ in series)</code>, a potem <code>names = [name for name, _, _ in series]</code>. Ile elementów ma <code>names</code>?</div>
+        <ul class="quiz-options">
+          <li>Tyle, ile wynosi <code>n</code>.<span class="why">Generator da się przejść tylko raz. Po liczeniu jest wyczerpany (moduł 01).</span></li>
+          <li data-correct>Zero.<span class="why">Tak. Drugie przejście nie dostaje niczego. Wczytaj serie do listy albo wywołaj <code>read_series(path)</code> drugi raz.</span></li>
+          <li>Błąd <code>StopIteration</code>.<span class="why">Pętla i comprehension obsługują koniec generatora same. Po prostu nic nie dostają.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">Nad <code>def cv2(values)</code> stoją kolejno <code>@register("cv2")</code> i <code>@requires_history(12)</code>. Co trafia do słownika <code>STATISTICS</code>?</div>
+        <ul class="quiz-options">
+          <li>Goła funkcja <code>cv2</code>.<span class="why">Dekoratory działają od dołu. <code>register</code> dostaje już wynik <code>requires_history(12)(cv2)</code> (moduł 02).</span></li>
+          <li data-correct>Opakowanie z <code>requires_history</code>, które dla krótkiej historii zwraca <code>None</code>.<span class="why">Tak. Zapis znaczy <code>cv2 = register("cv2")(requires_history(12)(cv2))</code>.</span></li>
+          <li>Dwie funkcje, po jednej na dekorator.<span class="why"><code>register</code> zapisuje jedną funkcję: tę, którą dostał.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q5" data-type="single">
+        <div class="quiz-q"><code>tests = [lambda s: s["total"] >= t for t in (10, 50)]</code>. Seria ma <code>total</code> równe 30. Co dają oba testy?</div>
+        <ul class="quiz-options">
+          <li><code>True</code>, <code>False</code><span class="why">Tego chciał autor. Obie lambdy czytają jednak <code>t</code> dopiero przy wywołaniu, a wtedy <code>t</code> to 50 (moduł 02).</span></li>
+          <li data-correct><code>False</code>, <code>False</code><span class="why">Tak. Rozwiązaniem jest fabryka <code>at_least(key, threshold)</code>: każde wywołanie ma własny próg.</span></li>
+          <li><code>True</code>, <code>True</code><span class="why">30 jest mniejsze od 50, a oba testy sprawdzają próg 50.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q6" data-type="single">
+        <div class="quiz-q"><code>mypy --strict</code> zgłasza: <code>incompatible type "tuple[float, ...]"; expected "list[float]"</code> przy wywołaniu <code>total(series.values)</code>. <code>total</code> tylko sumuje. Co poprawiasz?</div>
+        <ul class="quiz-options">
+          <li>Wywołanie: <code>total(list(series.values))</code>.<span class="why">Zadziała, ale kopiuje dane tylko po to, żeby uciszyć narzędzie. Problem leży w zbyt wąskim typie parametru.</span></li>
+          <li data-correct>Typ parametru: <code>values: Sequence[float]</code>.<span class="why">Tak. Funkcja tylko czyta, więc przyjmuje każdą sekwencję. Parametry typuj szeroko, wyniki wąsko (moduł 02).</span></li>
+          <li>Dodajesz <code># type: ignore</code>.<span class="why">To ukrywa informację, zamiast ją wykorzystać. W review taki komentarz wymaga uzasadnienia.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q7" data-type="single">
+        <div class="quiz-q">Gdzie sprawdzasz, że seria nie ma wartości ujemnych, żeby żaden obiekt z takimi danymi nie powstał?</div>
+        <ul class="quiz-options">
+          <li>W <code>from_record</code>.<span class="why">Wtedy <code>DemandSeries(...)</code> wywołane bezpośrednio omija sprawdzenie.</span></li>
+          <li data-correct>W <code>__post_init__</code> dataclassa.<span class="why">Tak. Każda droga do obiektu przechodzi przez <code>__init__</code>, a ten kończy się <code>__post_init__</code> (moduł 03).</span></li>
+          <li>W każdej metodzie, która używa <code>values</code>.<span class="why">Sprawdzenie w wielu miejscach łatwo gdzieś pominąć. Niezmiennik sprawdza się raz, przy tworzeniu.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q8" data-type="multi">
+        <div class="quiz-q">Chcesz dodać model prognozy z zewnętrznej biblioteki do porównania w <code>evaluate</code>. Model ma <code>fit</code> i <code>predict</code>, ale nie dziedziczy po <code>LocalForecaster</code>. Co jest prawdą? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Jeśli <code>evaluate</code> przyjmuje <code>Callable[[], Forecaster]</code>, gdzie <code>Forecaster</code> to <code>Protocol</code>, <code>mypy</code> przyjmie ten model.<span class="why">Tak. Protocol sprawdza metody, a nie pochodzenie (moduł 03).</span></li>
+          <li data-correct>W czasie działania zadziała niezależnie od typów.<span class="why">Tak. Python nie sprawdza adnotacji. Typy to umowa dla <code>mypy</code> i czytelnika.</span></li>
+          <li>Trzeba napisać klasę pośrednią dziedziczącą po <code>LocalForecaster</code>.<span class="why">To byłoby potrzebne tylko przy typie parametru <code>LocalForecaster</code>. Protocol usuwa tę potrzebę.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q9" data-type="single">
+        <div class="quiz-q">Test <code>assert SeasonalNaiveForecaster(season=3).fit([5.0] * 6).predict(3) == [5.0, 5.0, 5.0]</code> przechodzi. Który błąd w kodzie wykryje?</div>
+        <ul class="quiz-options">
+          <li>Sezon przesunięty o jeden krok.<span class="why">W historii samych piątek każde przesunięcie daje piątki.</span></li>
+          <li>Powtarzanie ostatniej wartości zamiast sezonu.<span class="why">Ostatnia wartość też jest piątką.</span></li>
+          <li data-correct>Żadnego z tych dwóch. Wykryje najwyżej złą długość wyniku.<span class="why">Tak. Dane nie odróżniają poprawnego kodu od błędnego. Sezon w teście musi mieć różne wartości (moduł 04).</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q10" data-type="single">
+        <div class="quiz-q">Test raportu przechodził cały rok, a 30 grudnia padł. Funkcja wypisuje numer tygodnia z <code>date.today()</code>. Która poprawka usuwa przyczynę?</div>
+        <ul class="quiz-options">
+          <li>Oznaczyć test jako niestabilny i uruchamiać go ponownie.<span class="why">Test dalej zależy od dnia, w którym go uruchamiasz. Ponowienie nic nie zmieni tego samego dnia.</span></li>
+          <li data-correct>Dodać funkcji parametr <code>today</code> i w teście podać stałą datę, także przełom roku.<span class="why">Tak. Test przestaje zależeć od zegara (T4), a przełom roku, który ujawnił błąd, staje się przypadkiem testowym.</span></li>
+          <li>Wyłączyć test w grudniu.<span class="why">Chowa błąd na jedenaście miesięcy, a przełom roku dalej nie jest przetestowany.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Dalej</h2>
+      <p>Część 2 zaczyna się od NumPy: te same obliczenia co w labach 01-03, ale na całych tablicach naraz, i metryki, którymi ocenisz każdy model do końca kursu.</p>
+      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

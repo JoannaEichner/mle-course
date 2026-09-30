@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>13 · Bez nadzoru, sieci, mapa ML | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="13">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">13 · Bez nadzoru, sieci, mapa ML</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 13 · Część 2: dane i ML</p>
+    <h1>Bez nadzoru, sieci, mapa ML</h1>
+    <p class="lede">Trzy tematy na zamknięcie części 2. Uczenie bez nadzoru, gdzie nie ma celu, więc każdy wybór trzeba obronić dowodem. Sieć neuronowa napisana od zera w PyTorch, żeby moduł 18 miał na czym stanąć. I mapa metod, których kurs nie ćwiczy, ale które trzeba umieć rozpoznać i przypisać do problemu.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 75 minut</li>
+      <li><b>Wymagane:</b> moduły 05, 08-11</li>
+      <li><b>Potem:</b> <a href="../../labs/13-unsupervised-nn/README.md">lab 13</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>pogrupować obiekty k-means i uzasadnić liczbę grup inercją i silhouette,</li>
+      <li>zrzutować dane na dwa wymiary przez PCA i przeczytać, co widać, a czego nie,</li>
+      <li>uczciwie sprawdzić, czy cecha z klastrów pomaga modelowi,</li>
+      <li>napisać MLP i pętlę treningową w PyTorch,</li>
+      <li>przypisać do problemu właściwą rodzinę metod spoza kursu.</li>
+    </ul>
+
+    <section id="kmeans">
+      <h2>k-means</h2>
+
+      <p>Uczenie bez nadzoru szuka struktury w danych bez celu do przewidzenia. <strong>k-means</strong> dzieli obiekty (u nas: serie opisane kilkoma liczbami) na <code>k</code> grup. Powtarza dwa kroki: przypisz każdy punkt do najbliższego środka, przesuń każdy środek do średniej swoich punktów. Kończy, gdy nic się nie zmienia.</p>
+
+      <p>"Najbliższy" to odległość euklidesowa, więc liczy się skala kolumn:</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+# columns: coefficient of variation, mean price in grosz
+a = np.array([0.5, 1000.0])
+b = np.array([1.5, 1000.0])    # three times as variable, same price
+c = np.array([0.5, 1010.0])    # same variability, 1% dearer
+print(np.linalg.norm(a - b), np.linalg.norm(a - c))</code></pre>
+        <ul class="quiz-options">
+          <li><code>10.0 1.0</code><span class="why">Odwrotnie. Różnica ceny w groszach to 10, różnica zmienności to 1.</span></li>
+          <li data-correct><code>1.0 10.0</code><span class="why">Tak. Seria trzy razy bardziej zmienna jest "bliżej" niż seria droższa o 1%. Bez skalowania o grupach decyduje kolumna z największymi liczbami. Dlatego przed k-means standaryzujesz.</span></li>
+          <li><code>1.0 1.0</code><span class="why">Odległość euklidesowa sumuje kwadraty różnic w jednostkach kolumn. Jednostki mają znaczenie.</span></li>
+        </ul>
+      </div>
+
+      <p>Numery grup są arbitralne: dwa uruchomienia mogą nazwać tę samą grupę 0 i 3. k-means zaczyna od losowych środków, więc ustalasz ziarno i bierzesz najlepszy z kilku startów (<code>n_init</code>).</p>
+
+      <h3>Ile grup</h3>
+
+      <p>Algorytm podzieli dane na tyle grup, ile mu każesz. Dowody przy wyborze <code>k</code>:</p>
+      <ul>
+        <li><strong>inercja</strong>: suma kwadratów odległości punktów od ich środków. Zawsze spada, gdy <code>k</code> rośnie (przy <code>k</code> równym liczbie punktów wynosi 0). Szuka się "łokcia", czyli miejsca, gdzie przestaje spadać szybko. Łokieć trzeba zobaczyć, nie założyć,</li>
+        <li><strong>silhouette</strong>: dla każdego punktu porównanie średniej odległości do własnej grupy i do najbliższej obcej, od −1 do 1. Wartości około 0.25-0.35 znaczą, że grupy nie są wyraźnie rozdzielone.</li>
+      </ul>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">W labie silhouette dla serii wynosi 0.32 przy k = 2 i około 0.25-0.27 dla k od 3 do 10. Inercja spada równo, bez łokcia. Co z tego wynika?</div>
+        <ul class="quiz-options">
+          <li>Serie tworzą dokładnie dwie naturalne grupy.<span class="why">0.32 to słaby sygnał. Dwie grupy są najlepsze z dostępnych, ale nie wyraźne.</span></li>
+          <li data-correct>Wyraźnych grup nie ma. Segmenty to wygodny podział ciągłego zróżnicowania, a <code>k</code> wybierasz z celu, któremu mają służyć.<span class="why">Tak. Uczciwa odpowiedź przyznaje, że dane nie wymuszają konkretnego k.</span></li>
+          <li>Trzeba wziąć k = 10, bo inercja jest najmniejsza.<span class="why">Inercja maleje z każdym k. Jej minimum to jedna seria na grupę.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="pca">
+      <h2>PCA</h2>
+
+      <p>Profil godzinowy serii to 24 liczby. Żeby go obejrzeć, potrzebujesz dwóch. <strong>PCA</strong> (analiza głównych składowych) znajduje kierunki, wzdłuż których dane różnią się najbardziej, i rzutuje na nie każdy punkt. Pierwsza składowa niesie najwięcej wariancji, druga najwięcej z tego, co zostało, i tak dalej.</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+t = np.linspace(0, 1, 50)
+X = np.c_[t, 2 * t, np.zeros(50)]        # points on a line in 3-D
+X = X - X.mean(axis=0)
+s = np.linalg.svd(X, compute_uv=False)
+print(np.round(s**2 / (s**2).sum(), 3))</code></pre>
+        <ul class="quiz-options">
+          <li><code>[0.333 0.333 0.333]</code><span class="why">Wariancja rozkłada się równo tylko wtedy, gdy punkty rozchodzą się we wszystkich kierunkach jednakowo.</span></li>
+          <li data-correct><code>[1. 0. 0.]</code><span class="why">Tak. Punkty leżą na jednej prostej, więc jeden kierunek niesie całą wariancję. Trzy kolumny, jeden wymiar informacji.</span></li>
+          <li><code>[0.2 0.8 0. ]</code><span class="why">To stosunek skal kolumn, a nie wariancja wzdłuż kierunków. PCA znajduje kierunek wspólny dla obu kolumn.</span></li>
+        </ul>
+      </div>
+
+      <p>Dwie decyzje przy PCA:</p>
+      <ul>
+        <li><strong>skalować czy nie</strong>: gdy kolumny mają różne jednostki, skaluj, jak przed k-means. Gdy mają tę samą (udziały godzin), tylko centruj. Po skalowaniu godzina 3:00, z małą wariancją, ważyłaby tyle co poranny szczyt,</li>
+        <li><strong>co zostało poza obrazkiem</strong>: w labie dwie składowe niosą około połowy wariancji profili godzinowych. Obrazek pokazuje połowę historii.</li>
+      </ul>
+
+      <p>Znak składowej jest arbitralny. "Pierwsza składowa to poranek kontra wieczór" to poprawne zdanie. "Duża wartość to produkt poranny" jest prawdziwe tylko przy jednej konwencji znaku.</p>
+    </section>
+
+    <section id="segment-cecha">
+      <h2>Klastry jako cecha</h2>
+
+      <p>Kuszący pomysł: dodać segment serii jako cechę modelu prognozy. Dwa warunki uczciwego testu:</p>
+      <ul>
+        <li><strong>segmenty z przeszłości</strong>: profil serii liczony z całego okresu zawiera jej sprzedaż z tygodnia walidacji. Segment trzeba dopasować w każdym foldzie tylko na dniach przed walidacją, jak skaler (C4),</li>
+        <li><strong>kontrola</strong>: kolumna losowych etykiet o tej samej liczbie poziomów też potrafi przesunąć wynik o ułamek. Zysk segmentu musi być większy niż rozrzut tych losowych wyników.</li>
+      </ul>
+
+      <div class="callout story">
+        <span class="label">Z labu</span>
+        <p>Z identyfikatorami sklepu i produktu wśród cech segment poprawia WAPE o 0.0008, a trzy losowe etykietowania pogarszają go o 0.0005-0.0012. To różnice rzędu tysięcznych, w granicach tego, co robi kolumna szumu. Bez identyfikatorów segment poprawia WAPE z 0.4205 na 0.4002, a losowe etykiety nie dają nic: to prawdziwy zysk. Segment zastępuje tożsamość serii, której model nie miał. Kiedy tożsamość już jest, segment jest zbędny.</p>
+      </div>
+    </section>
+
+    <section id="siec">
+      <h2>Sieć neuronowa w PyTorch</h2>
+
+      <p>Perceptron wielowarstwowy (MLP) to warstwy liniowe przedzielone nieliniowością. Bez niej dwie warstwy liniowe to jedna warstwa liniowa, a sieć nie nauczy się niczego ponad regresję z modułu 08. Najczęstsza nieliniowość to <strong>ReLU</strong>: <code>max(0, x)</code>.</p>
+
+<pre><code class="language-python">import torch
+from torch import nn
+
+
+class TabularMLP(nn.Module):
+    def __init__(self, n_inputs: int, hidden: tuple[int, ...] = (64, 32)) -> None:
+        super().__init__()
+        layers, width = [], n_inputs
+        for units in hidden:
+            layers += [nn.Linear(width, units), nn.ReLU()]
+            width = units
+        layers.append(nn.Linear(width, 1))          # no ReLU on the output
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x).squeeze(-1)              # shape (n,), not (n, 1)</code></pre>
+
+      <p><strong>Tensor</strong> to tablica jak w NumPy, która umie liczyć gradienty (autograd). <code>nn.Module</code> rejestruje warstwy i ich parametry, a <code>model.parameters()</code> oddaje je optymalizatorowi. Uczenie to ta sama pętla co gradient descent z modułu 08, tylko gradienty liczy PyTorch:</p>
+
+<pre><code class="language-python">optimiser = torch.optim.Adam(model.parameters(), lr=3e-3)
+loss_fn = nn.MSELoss()
+
+for epoch in range(epochs):
+    model.train()
+    for xb, yb in loader:                 # mini-batches in random order
+        optimiser.zero_grad()             # 1. forget the previous gradients
+        loss = loss_fn(model(xb), yb)     # 2. forward pass and loss
+        loss.backward()                   # 3. gradients of the loss
+        optimiser.step()                  # 4. move the parameters
+    model.eval()
+    with torch.no_grad():                 # 5. validation, no gradients
+        valid_loss = loss_fn(model(X_valid), y_valid).item()</code></pre>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Co się stanie, jeśli usuniesz <code>optimiser.zero_grad()</code>?</div>
+        <ul class="quiz-options">
+          <li>Nic, gradient jest liczony od nowa w każdym <code>backward()</code>.<span class="why"><code>backward()</code> dodaje gradienty do tych, które już są w <code>.grad</code>, a nie nadpisuje ich.</span></li>
+          <li data-correct>Gradienty sumują się przez kolejne batche, więc każdy krok idzie w kierunku sumy wszystkich poprzednich gradientów.<span class="why">Tak. Uczenie się rozjeżdża albo staje. Sumowanie gradientów bywa celowe (większy batch bez pamięci), ale wtedy zerujesz co kilka kroków, świadomie.</span></li>
+          <li>PyTorch zgłosi błąd.<span class="why">Nie zgłosi. To cichy błąd, który widać dopiero na krzywej straty.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Early stopping</strong> działa jak w LightGBM: po każdej epoce strata na odłożonych dniach, zatrzymanie po kilku epokach bez poprawy i powrót do wag najlepszej epoki. Te wagi trzeba zapamiętać jako kopię (<code>copy.deepcopy(model.state_dict())</code>), bo sam <code>state_dict()</code> to odwołania do tensorów, które zmienią się w następnym kroku.</p>
+
+      <h3>Dlaczego sieć przegrywa z drzewami na tabelach</h3>
+
+      <p>W labie MLP ma WAPE 0.44-0.45, a LightGBM na tych samych liczbowych cechach 0.42 (z identyfikatorami 0.38). To typowy wynik na danych tabelarycznych średniej wielkości. Przyczyny widać w labie:</p>
+      <ul>
+        <li><strong>ekstrapolacja</strong>: tydzień walidacji bywa cieplejszy niż cały trening. Drzewo zatrzymuje się na najcieplejszym liściu, jaki zna. Sieć liniowo "ciągnie" dalej,</li>
+        <li><strong>tożsamość serii</strong>: drzewa biorą identyfikator jako kategorię, a sieć potrzebowałaby embeddingu (moduł 18),</li>
+        <li><strong>skale i rozkłady</strong>: cechy z długimi ogonami sieć widzi przez skalowanie, drzewa przez kolejność, której skala nie obchodzi,</li>
+        <li><strong>szum zatrzymania</strong>: jeden tydzień walidacji to głośny sygnał, kiedy przestać.</li>
+      </ul>
+
+      <p>Sieci wygrywają tam, gdzie dane mają strukturę, którą warstwy potrafią wykorzystać: obrazy, dźwięk, tekst, długie sekwencje, bardzo duże zbiory. O tym jest mapa niżej i moduł 18.</p>
+    </section>
+
+    <section id="mapa">
+      <h2>Mapa ML</h2>
+
+      <p>Kurs ćwiczy prognozę sprzedaży, klasyfikację i klastrowanie na tabelach. Poniżej reszta mapy, na tyle, żeby rozpoznać, która metoda pasuje do problemu i gdzie szukać dalej.</p>
+
+      <table>
+        <thead><tr><th>Rodzina</th><th>Idea</th><th>Kiedy</th></tr></thead>
+        <tbody>
+          <tr><td>SVM</td><td>granica między klasami z największym marginesem, z jądrami dla granic nieliniowych</td><td>małe i średnie zbiory, dużo cech. Dziś rzadziej niż boosting</td></tr>
+          <tr><td>naive Bayes</td><td>prawdopodobieństwo klasy z założeniem niezależności cech</td><td>szybka klasyfikacja tekstu, mocny baseline</td></tr>
+          <tr><td>klasyczne szeregi czasowe</td><td>ETS, ARIMA: model jednej serii z trendem i sezonowością</td><td>mało serii, długa historia, potrzeba przedziałów ufności</td></tr>
+          <tr><td>CNN</td><td>splot: te same wagi przesuwane po obrazie, wykrywają lokalne wzorce</td><td>obrazy, sygnały, czasem sekwencje</td></tr>
+          <tr><td>RNN, GRU, LSTM</td><td>stan niesiony krok po kroku przez sekwencję</td><td>sekwencje, szeregi czasowe (moduł 18)</td></tr>
+          <tr><td>transformery</td><td>uwaga: każdy element sekwencji patrzy na wszystkie inne</td><td>tekst, długie sekwencje, modele wielkie i wstępnie wytrenowane</td></tr>
+          <tr><td>LLM</td><td>transformer wytrenowany na ogromnym korpusie tekstu, dostrajany albo sterowany promptem</td><td>tekst, ekstrakcja, klasyfikacja bez etykiet, asystenci</td></tr>
+          <tr><td>systemy rekomendacyjne</td><td>faktoryzacja macierzy użytkownik × produkt, modele dwuwieżowe</td><td>"klienci, którzy kupili X", personalizacja</td></tr>
+          <tr><td>uczenie ze wzmocnieniem</td><td>agent uczy się polityki z nagród za działania</td><td>sterowanie, dynamiczne ceny, gry. Trudne w produkcji</td></tr>
+          <tr><td>wykrywanie anomalii</td><td>isolation forest, odległość od typowych punktów, błąd rekonstrukcji</td><td>oszustwa, awarie, błędy danych</td></tr>
+        </tbody>
+      </table>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">Sklep chce automatycznie przypisywać kategorię produktu na podstawie jego opisu tekstowego. Etykiet jest mało. Od czego zaczniesz?</div>
+        <ul class="quiz-options">
+          <li>Od LightGBM na identyfikatorach produktów.<span class="why">Identyfikator nie mówi nic o nowym produkcie. Informacja jest w tekście.</span></li>
+          <li data-correct>Od prostego baselinu na tekście (naive Bayes albo regresja logistyczna na słowach) i porównania z LLM sterowanym promptem.<span class="why">Tak. Mało etykiet to dziedzina modeli wstępnie wytrenowanych, ale prosty baseline powie, ile naprawdę dają.</span></li>
+          <li>Od k-means na opisach.<span class="why">Klastrowanie znajdzie grupy, ale nie przypisze kategorii ze słownika sklepu.</span></li>
+        </ul>
+      </div>
+
+      <div class="quiz" id="q4" data-type="single">
+        <div class="quiz-q">Masz 3 serie sprzedaży z pięcioletnią historią i potrzebujesz prognozy z przedziałem niepewności dla zarządu. Co jest rozsądnym pierwszym wyborem?</div>
+        <ul class="quiz-options">
+          <li data-correct>Klasyczny model szeregu czasowego (ETS albo ARIMA) na każdej serii.<span class="why">Tak. Mało serii, długa historia i potrzeba przedziałów to ich naturalny teren. Boosting zyskuje przy tysiącach serii i wielu cechach.</span></li>
+          <li>Transformer.<span class="why">Trzy serie to za mało danych, żeby duży model nauczył się czegoś, czego nie uchwyci prosty model.</span></li>
+          <li>k-means na seriach.<span class="why">Trzech serii nie ma po co grupować, a klastrowanie nie prognozuje.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Jeden krok k-means</h3>
+
+      <p>Napisz <code>kmeans_step(points, centres)</code>: przypisz każdy punkt do najbliższego środka i zwróć nowe środki (średnie przypisanych punktów) oraz przypisania. Środek bez punktów zostaje na miejscu.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def kmeans_step(points, centres):
+    """One k-means iteration: (new centres, index of the nearest centre per point)."""
+    ...
+
+
+points = np.array([[0.0, 0.0], [0.0, 1.0], [5.0, 5.0], [6.0, 5.0]])
+centres = np.array([[0.0, 0.5], [4.0, 4.0]])
+print(kmeans_step(points, centres))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_points = _np.array([[0.0, 0.0], [0.0, 1.0], [5.0, 5.0], [6.0, 5.0]])
+_new, _assigned = kmeans_step(_points, _np.array([[0.0, 0.5], [4.0, 4.0]]))
+assert list(_assigned) == [0, 0, 1, 1], f"Dwa pierwsze punkty należą do środka 0, dwa ostatnie do 1. Jest {list(_assigned)}."
+assert _np.allclose(_new, [[0.0, 0.5], [5.5, 5.0]]), f"Nowe środki to średnie grup: (0, 0.5) i (5.5, 5). Jest {_new.tolist()}."
+_new, _ = kmeans_step(_points, _np.array([[0.0, 0.5], [100.0, 100.0], [5.5, 5.0]]))
+assert _np.allclose(_new[1], [100.0, 100.0]), "Środek bez punktów zostaje na miejscu."
+</script>
+      </div>
+
+      <h3>Udział pierwszej składowej</h3>
+
+      <p>Napisz <code>first_component_share(matrix)</code>: jaką część wariancji (po wycentrowaniu kolumn) niesie pierwsza składowa główna.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def first_component_share(matrix):
+    """Share of the total variance carried by the first principal component."""
+    ...
+
+
+rng = np.random.default_rng(0)
+t = rng.normal(size=200)
+print(round(first_component_share(np.c_[t, t + rng.normal(scale=0.1, size=200)]), 3))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_t = _np.linspace(0, 1, 30)
+assert abs(first_component_share(_np.c_[_t, 3 * _t]) - 1.0) < 1e-9, "Punkty na prostej: pierwsza składowa niesie całą wariancję."
+_square = _np.array([[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]])
+assert abs(first_component_share(_square) - 0.5) < 1e-9, "Punkty rozłożone równo w dwóch kierunkach: pierwsza składowa niesie połowę."
+assert abs(first_component_share(_np.c_[_t + 100, 3 * _t - 50]) - 1.0) < 1e-9, "Przesunięcie kolumn nie zmienia wyniku: pamiętasz o centrowaniu?"
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Opiszesz serie sześcioma liczbami, podzielisz je k-means i uzasadnisz liczbę grup, zobaczysz profile godzinowe w dwóch wymiarach, sprawdzisz segment jako cechę z kontrolą losowych etykiet, a na koniec napiszesz MLP z pętlą treningową i postawisz go obok LightGBM. Około 7 godzin.</p>
+      <p>Otwórz <code>labs/13-unsupervised-nn/13-unsupervised-nn.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>14 · Od notebooka do pipeline'u | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="14">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">14 · Od notebooka do pipeline'u</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 14 · Część 3: produkcja</p>
+    <h1>Od notebooka do pipeline'u</h1>
+    <p class="lede">Notebook jest dobry do myślenia i złym miejscem na coś, co ma działać co noc bez Ciebie. Pipeline to ten sam kod, ale z ustawieniami w jednym pliku, poleceniem, które da się uruchomić z crona, logiem, który powie, co się stało, i modelem zapisanym tak, żeby za pół roku wiadomo było, skąd się wziął.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 50 minut</li>
+      <li><b>Wymagane:</b> część 2</li>
+      <li><b>Potem:</b> <a href="../../labs/14-pipeline/README.md">lab 14</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>przenieść ustawienia do pliku YAML z walidacją w pydantic i nadpisaniem ze środowiska,</li>
+      <li>zbudować CLI z poleceniami i kodami wyjścia,</li>
+      <li>logować zamiast drukować i obsługiwać błędy w jednym, jawnym miejscu,</li>
+      <li>zapisać model z metadanymi i sygnaturą,</li>
+      <li>przetwarzać dane większe niż pamięć kawałkami.</li>
+    </ul>
+
+    <section id="dlaczego">
+      <h2>Co zmienia pipeline</h2>
+
+      <p>W notebooku kolejność komórek, stan kernela i ręcznie wpisane ścieżki tworzą ukryte zależności. Uruchomiony jutro na innym komputerze daje inny wynik albo nie działa wcale. Pipeline ma cztery własności, których notebook nie ma:</p>
+      <ul>
+        <li><strong>jeden punkt wejścia</strong>: <code>freshcast train --config configs/standard.yaml</code> robi wszystko, w ustalonej kolejności,</li>
+        <li><strong>ustawienia poza kodem</strong>: inny zbiór danych to inny plik YAML, a nie edycja funkcji,</li>
+        <li><strong>obserwowalność</strong>: log mówi, co się stało, kiedy i ile to trwało,</li>
+        <li><strong>powtarzalność</strong>: model ma przy sobie wszystko, co potrzebne, żeby go odtworzyć i użyć.</li>
+      </ul>
+      <p>Logika zostaje w funkcjach pakietu, które już masz i które już mają testy. Pipeline je tylko łączy.</p>
+    </section>
+
+    <section id="ustawienia">
+      <h2>Ustawienia</h2>
+
+      <p>Ustawienia opisuje model pydantic: klasa z polami, typami i ograniczeniami. Pydantic sprawdza je przy wczytaniu, więc zły plik zatrzymuje uruchomienie w pierwszej sekundzie, a nie po godzinie treningu.</p>
+
+<pre><code class="language-yaml"># configs/standard.yaml
+data:
+  train_file: data/raw/freshretailnet/train.parquet
+  processed_dir: data/processed
+  cities: [3]
+model:
+  rounds: 400
+  in_stock_only: true
+backtest:
+  folds: 4
+  horizon: 7</code></pre>
+
+<pre><code class="language-python">class ModelSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")      # unknown keys are errors
+
+    rounds: int = Field(default=400, ge=1)
+    in_stock_only: bool = True</code></pre>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">from pydantic import BaseModel, Field, ValidationError
+
+class ModelSettings(BaseModel):
+    rounds: int = Field(default=400, ge=1)
+
+print(ModelSettings(rounds="200").rounds, end=" ")
+try:
+    ModelSettings(rounds=0)
+except ValidationError as error:
+    print(error.error_count())</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>200 1</code><span class="why">Tak. Tekst "200" z pliku albo zmiennej środowiskowej zamienia się na liczbę. 0 łamie <code>ge=1</code> i daje jeden błąd walidacji z nazwą pola.</span></li>
+          <li><code>200 0</code><span class="why">0 jest mniejsze niż <code>ge=1</code>, więc walidacja zgłasza błąd.</span></li>
+          <li><code>ValidationError</code><span class="why">Pydantic w domyślnym trybie zamienia "200" na 200. Błąd daje dopiero 0.</span></li>
+        </ul>
+      </div>
+
+      <p><code>extra="forbid"</code> to ochrona przed literówką: <code>round: 200</code> zamiast <code>rounds: 200</code> bez tej opcji po cichu zostawiłoby 400.</p>
+
+      <p><strong>Nadpisanie ze środowiska.</strong> <code>pydantic-settings</code> czyta też zmienne środowiskowe: <code>FRESHCAST_MODEL__ROUNDS=150</code> ustawia <code>model.rounds</code>. W CI, w Dockerze i w harmonogramie zmienisz jedną wartość bez edycji pliku. Kolejność źródeł ustalasz sam: w kursie środowisko wygrywa z plikiem. Hasła i klucze trafiają tylko do środowiska, nigdy do YAML w repozytorium (G4).</p>
+    </section>
+
+    <section id="cli">
+      <h2>CLI i kody wyjścia</h2>
+
+      <p>Polecenie w terminalu to funkcja, której wynikiem jest <strong>kod wyjścia</strong>. Cron, CI i skrypty patrzą tylko na niego: 0 znaczy sukces, każda inna liczba porażkę. Warto rozróżnić porażki, bo różnie się na nie reaguje:</p>
+
+      <table>
+        <thead><tr><th>Kod</th><th>Znaczy</th><th>Reakcja</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>sukces</td><td>nic</td></tr>
+          <tr><td>2</td><td>złe ustawienia albo argumenty</td><td>poprawić konfigurację, ponawianie nic nie da</td></tr>
+          <tr><td>1</td><td>każdy inny błąd: dane, kod, sieć</td><td>przeczytać log, może ponowić</td></tr>
+        </tbody>
+      </table>
+
+      <p><code>argparse</code> sam zwraca 2 przy złych argumentach:</p>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import argparse
+
+parser = argparse.ArgumentParser(prog="freshcast")
+commands = parser.add_subparsers(dest="command", required=True)
+commands.add_parser("train").add_argument("--config", required=True)
+try:
+    parser.parse_args(["train"])
+except SystemExit as exit:
+    print("exit", exit.code)</code></pre>
+        <ul class="quiz-options">
+          <li><code>exit 0</code><span class="why">Brakuje wymaganego <code>--config</code>, więc to nie jest sukces.</span></li>
+          <li><code>exit 1</code><span class="why"><code>argparse</code> używa kodu 2 dla błędów użycia polecenia. Konwencja pochodzi z narzędzi uniksowych.</span></li>
+          <li data-correct><code>exit 2</code><span class="why">Tak. <code>argparse</code> wypisuje opis użycia na stderr i kończy proces kodem 2. Twoje CLI stosuje tę samą konwencję dla złego pliku ustawień.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="logi">
+      <h2>Logowanie i błędy</h2>
+
+      <p><code>print</code> w pakiecie znika albo miesza się z wynikiem polecenia (K8). <code>logging</code> ma poziomy, znaczniki czasu i nazwę modułu, a o tym, co i gdzie trafia, decyduje punkt wejścia, a nie każda funkcja z osobna:</p>
+
+<pre><code class="language-python">logger = logging.getLogger(__name__)          # in every module of the package
+
+logger.info("Prepared %d rows, %d days", len(daily), daily[DATE].nunique())
+logger.warning("%d series have no sales in the last 28 days", quiet)</code></pre>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import logging
+import sys
+
+logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s %(message)s", force=True)
+log = logging.getLogger("freshcast")
+log.debug("rows: 10")
+log.info("fold 1 done")
+log.warning("3 series skipped")</code></pre>
+        <ul class="quiz-options">
+          <li><code>DEBUG rows: 10</code>, <code>INFO fold 1 done</code>, <code>WARNING 3 series skipped</code><span class="why">Poziom INFO odcina komunikaty mniej ważne, czyli DEBUG. Flaga <code>--verbose</code> w CLI obniża poziom do DEBUG.</span></li>
+          <li data-correct><code>INFO fold 1 done</code>, <code>WARNING 3 series skipped</code><span class="why">Tak. Komunikaty DEBUG są w kodzie zawsze, a konfiguracja decyduje, czy je widać.</span></li>
+          <li>Nic, bo loggera nie skonfigurowano.<span class="why"><code>basicConfig</code> skonfigurował główny logger, a <code>freshcast</code> przekazuje do niego komunikaty.</span></li>
+        </ul>
+      </div>
+
+      <p><strong>Jedna granica błędów.</strong> Wewnątrz pakietu funkcje rzucają konkretne wyjątki z czytelnym komunikatem i ich nie łapią (K4). W jednym miejscu, w punkcie wejścia CLI, jest <code>except Exception</code>: loguje pełny traceback przez <code>logger.exception</code> i zwraca kod 1. Błąd nie ginie po drodze, a proces kończy się czysto.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Funkcja <code>prepare_daily</code> łapie każdy wyjątek, loguje "coś poszło nie tak" i zwraca pustą ramkę. Co się stanie w nocnym przebiegu, gdy plik będzie uszkodzony?</div>
+        <ul class="quiz-options">
+          <li>Przebieg zakończy się błędem z kodem 1.<span class="why">Wyjątek został połknięty. Dalsze kroki dostaną pustą ramkę.</span></li>
+          <li data-correct>Przebieg może skończyć się "sukcesem" z pustą albo błędną prognozą, a przyczyna zginie w jednej linii logu.<span class="why">Tak. Dlatego wyjątki łapie się tylko tam, gdzie wiadomo, co z nimi zrobić, a na brzegu programu jest jedna jawna granica.</span></li>
+          <li>Python odmówi uruchomienia takiego kodu.<span class="why">Python pozwoli. Ostrzeże dopiero ruff albo recenzent.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="model">
+      <h2>Zapis modelu</h2>
+
+      <p>Model to plik plus wiedza o tym, skąd się wziął. Każdy zapis tworzy nowy katalog z sygnaturą, nigdy nie nadpisuje poprzedniego:</p>
+
+<pre><code class="language-text">artifacts/lightgbm_20240626-213000/
+├── model.joblib        wytrenowany model
+├── metadata.json       cechy, parametry, liczba drzew, okres i liczba wierszy treningu,
+│                       miasta, średnie wyniki backtestu
+├── backtest.csv        wyniki per fold
+└── history.parquet     historia potrzebna do policzenia lagów przyszłego tygodnia</code></pre>
+
+      <p><code>joblib</code> i <code>pickle</code> zapisują dowolny obiekt Pythona, więc otwarcie pliku może wykonać dowolny kod. Wczytuj tylko modele, które sam zapisałeś albo które przyszły z zaufanego miejsca. Do wymiany między systemami służą formaty bez kodu, na przykład tekstowy zapis drzew LightGBM albo ONNX.</p>
+
+      <p><strong>Ziarna losowości</strong> zapisuje się razem z parametrami. Ten sam kod, dane i ziarno dają ten sam model na tej samej maszynie. Między maszynami drobne różnice w liczbach zmiennoprzecinkowych są normalne.</p>
+
+      <div class="quiz" id="q2" data-type="multi">
+        <div class="quiz-q">Które z tych rzeczy powinny trafić do <code>metadata.json</code>? Zaznacz wszystkie.</div>
+        <ul class="quiz-options">
+          <li data-correct>Lista cech w kolejności, w jakiej model je dostaje.<span class="why">Tak. Prognoza musi dostać cechy w tej samej kolejności i o tych samych nazwach.</span></li>
+          <li data-correct>Pierwszy i ostatni dzień danych treningowych.<span class="why">Tak. Bez tego nie wiesz, czy model jest aktualny i na czym go oceniać.</span></li>
+          <li>Hasło do bucketu S3, z którego pobrano dane.<span class="why">Sekrety nie trafiają do plików obok modelu ani do repozytorium.</span></li>
+          <li data-correct>Średnie wyniki backtestu.<span class="why">Tak. Następny model ma z czym się porównać.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="pamiec">
+      <h2>Dane większe niż pamięć</h2>
+
+      <p>Profil <code>full</code> to 4,5 mln wierszy z tablicami godzinowymi. Wczytany naraz przez pandas zajmuje kilka razy więcej pamięci niż laptop ma. Przetwarzanie kawałkami, tu miasto po mieście, trzyma w pamięci naraz tylko największy kawałek: surowe kolumny godzinowe miasta zamieniają się w kilka liczb na wiersz, zanim wczytasz następne miasto. Szczyt pamięci zależy wtedy od największego miasta, a nie od całego pliku.</p>
+
+      <p>To ogólny wzorzec: czytaj tylko potrzebne kolumny (D1), zmniejszaj dane jak najwcześniej i łącz małe wyniki na końcu. W module 15 ten sam problem rozwiąże SQL w DuckDB, który sam czyta plik kawałkami.</p>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Ustawienia backtestu</h3>
+
+      <p>Napisz model pydantic <code>BacktestSettings</code>: pola <code>folds</code> (domyślnie 4) i <code>horizon</code> (domyślnie 7), obie liczby całkowite co najmniej 1. Nieznany klucz ma być błędem.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+
+class BacktestSettings(BaseModel):
+    """How the model is validated: number of folds and their length in days."""
+    ...
+
+
+print(BacktestSettings(folds="3"))
+</script>
+        <script type="text/x-python" data-role="test">
+from pydantic import ValidationError as _VE
+_s = BacktestSettings()
+assert (_s.folds, _s.horizon) == (4, 7), f"Domyślnie 4 foldy po 7 dni. Jest {_s}."
+assert BacktestSettings(folds="3").folds == 3, "Tekst '3' ma się zamienić na liczbę 3."
+for _bad in [{"folds": 0}, {"horizon": -1}, {"fold": 3}]:
+    try:
+        BacktestSettings(**_bad)
+    except _VE:
+        pass
+    else:
+        raise AssertionError(f"{_bad} ma dać ValidationError: zera, liczby ujemne i nieznane klucze są odrzucane.")
+</script>
+      </div>
+
+      <h3>Kod wyjścia</h3>
+
+      <p>Napisz <code>run(load, execute)</code>: wywołuje <code>load()</code>, a jeśli zgłosi <code>FileNotFoundError</code> albo <code>ValueError</code>, zwraca 2. Potem wywołuje <code>execute(settings)</code> z wynikiem <code>load()</code>. Każdy wyjątek z <code>execute</code> loguje przez <code>logger.exception</code> i zwraca 1. Sukces to 0.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import logging
+
+logger = logging.getLogger("freshcast")
+
+
+def run(load, execute):
+    """Return the exit code: 0 success, 2 bad settings, 1 any other failure."""
+    ...
+
+
+print(run(lambda: {"rounds": 400}, lambda settings: None))
+</script>
+        <script type="text/x-python" data-role="test">
+def _missing():
+    raise FileNotFoundError("configs/none.yaml")
+def _invalid():
+    raise ValueError("rounds must be at least 1")
+def _crash(settings):
+    raise KeyError("sale_amount")
+_seen = []
+assert run(lambda: {"a": 1}, lambda s: _seen.append(s)) == 0 and _seen == [{"a": 1}], "Sukces: execute dostaje ustawienia, kod 0."
+assert run(_missing, lambda s: None) == 2, "Brak pliku ustawień to kod 2."
+assert run(_invalid, lambda s: None) == 2, "Złe ustawienia to kod 2."
+assert run(lambda: {}, _crash) == 1, "Błąd w trakcie działania to kod 1."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Pięć ticketów: ustawienia z pliku i środowiska, zapis modelu z metadanymi, przygotowanie danych kawałkami, funkcje <code>train</code> i <code>forecast</code> oraz CLI z kodami wyjścia. Na koniec przebieg z terminala i, jeśli masz pamięć, na całym zbiorze. Około 7 godzin.</p>
+      <p>Zacznij od <code>labs/14-pipeline/README.md</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

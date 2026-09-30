@@ -1,0 +1,70 @@
+From: Kolega z zespołu
+Subject: [PATCH] Add promo uplift feature
+
+Adds a feature that tells the model how much a product usually sells more
+on promotion days. Should help with the discount weeks.
+
+---
+ src/freshcast/features/catalog.py |  5 +++++
+ src/freshcast/features/promo.py   | 41 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
+ create mode 100644 src/freshcast/features/promo.py
+
+diff --git a/src/freshcast/features/promo.py b/src/freshcast/features/promo.py
+new file mode 100644
+--- /dev/null
++++ b/src/freshcast/features/promo.py
+@@ -0,0 +1,41 @@
++"""Promo uplift feature."""
++
++import boto3
++import pandas as pd
++
++s3 = boto3.client(
++    "s3",
++    endpoint_url="http://10.12.0.7:9000",
++    aws_access_key_id="AKIAX7Q2PROMO",
++    aws_secret_access_key="kR9vT2mZ8qL1xW4nB6cY3pD0sF5gH7jK",
++)
++
++
++def promo_uplift(df):
++    df["on_promo"] = df["discount"] < 0.9
++    df["promo_sales"] = df["sales_in_stock"].where(df["on_promo"])
++    df["base_sales"] = df["sales_in_stock"].where(~df["on_promo"])
++    uplift = (
++        df["promo_sales"].rolling(7, min_periods=1).mean()
++        / df["base_sales"].rolling(7, min_periods=1).mean()
++    )
++    return uplift.fillna(0)
++
++
++def publish_uplift(df, path):
++    try:
++        promo_uplift(df).to_frame("uplift").to_parquet(path)
++        s3.upload_file(str(path), "features", "promo_uplift.parquet")
++    except Exception:
++        pass
++    print("uplift published")
++
++
++def uplift_by_store(df):
++    result = {}
++    for store in df["store_id"].unique():
++        rows = df[df["store_id"] == store]
++        result[store] = promo_uplift(rows).mean()
++    return result
++
+diff --git a/src/freshcast/features/catalog.py b/src/freshcast/features/catalog.py
+--- a/src/freshcast/features/catalog.py
++++ b/src/freshcast/features/catalog.py
+@@ -80,6 +80,11 @@ def _zero_discount(df: pd.DataFrame) -> pd.Series:
+     return df[DISCOUNT_IS_ZERO].astype("int8")
+
+
++@registry.register("promo_uplift", requires=["discount", "sales_in_stock"])
++def _promo_uplift(df: pd.DataFrame) -> pd.Series:
++    return promo.promo_uplift(df)
++
++
+ # --- history

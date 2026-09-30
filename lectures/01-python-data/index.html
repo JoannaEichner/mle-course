@@ -29,10 +29,20 @@
     <h1>Struktury danych i przepływ</h1>
     <p class="lede">Umiesz napisać pętlę i funkcję. Ten moduł dotyczy tego, co dzieje się pod spodem, kiedy piszesz <code>b = a</code>. Od tej odpowiedzi zależy, czy funkcja czyszcząca dane zepsuje Ci oryginał.</p>
 
-    <div class="callout">
-      <span class="label">Fragment pilotażowy</span>
-      <p>To jedna sekcja wykładu 01. Pokazuje, jak działają ćwiczenia z kodem uruchamianym w przeglądarce. Pełny wykład powstanie w kolejnym etapie.</p>
-    </div>
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> zmienne, pętle, funkcje, listy i słowniki</li>
+      <li><b>Potem:</b> <a href="../../labs/01-python-data/README.md">lab 01</a>, około 6 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>przewidzieć, kiedy zmiana jednej zmiennej zmienia też inną,</li>
+      <li>dobrać listę, krotkę, słownik albo zbiór do zadania,</li>
+      <li>pisać comprehensions i generatory zamiast pętli budujących listy,</li>
+      <li>czytać plik linia po linii i zamykać go zawsze, także przy błędzie,</li>
+      <li>zgłaszać i łapać wyjątki tak, żeby komunikat mówił, co jest nie tak.</li>
+    </ul>
 
     <p>W każdym bloku poniżej najpierw wybierz, co Twoim zdaniem wypisze kod. Dopiero potem go uruchom. Python ładuje się do przeglądarki przy pierwszym uruchomieniu, co trwa kilka sekund i wymaga sieci.</p>
 
@@ -150,8 +160,175 @@ print(snapshot)</code></pre>
       <p>Ta reguła zostanie z Tobą do końca kursu. Wróci w module 06 jako "funkcja czyszcząca zwraca nową ramkę" i w każdym review.</p>
     </section>
 
+
+    <section id="kolekcje">
+      <h2>Cztery kolekcje</h2>
+
+      <p>Python ma cztery wbudowane kolekcje, których będziesz używać codziennie. Różnią się tym, czy pamiętają kolejność, czy pozwalają na powtórzenia i czy da się je zmienić.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Typ</th><th>Przykład</th><th>Kolejność</th><th>Zmienny</th><th>Do czego</th></tr></thead>
+          <tbody>
+            <tr><td><code>list</code></td><td><code>[3, 5, 4]</code></td><td>tak</td><td>tak</td><td>ciąg wartości: sprzedaż miesiąc po miesiącu</td></tr>
+            <tr><td><code>tuple</code></td><td><code>("T1", "1998-01")</code></td><td>tak</td><td>nie</td><td>stały zestaw pól: nazwa i data startu serii</td></tr>
+            <tr><td><code>dict</code></td><td><code>{"T1": 12}</code></td><td>tak (kolejność wstawiania)</td><td>tak</td><td>wyszukiwanie po kluczu: statystyki po nazwie serii</td></tr>
+            <tr><td><code>set</code></td><td><code>{"T1", "T7"}</code></td><td>nie</td><td>tak</td><td>przynależność i unikalność: które serie mają braki</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Różnica, którą czuć przy danych: sprawdzenie <code>x in lista</code> przegląda listę element po elemencie, a <code>x in zbior</code> i <code>x in slownik</code> trafia od razu. Dla 2 674 serii to bez znaczenia. Dla 4,5 miliona wierszy to minuty kontra ułamek sekundy.</p>
+
+      <p>Klucz słownika i element zbioru muszą być niezmienne. Krotka może być kluczem, lista nie.</p>
+
+      <div class="predict" id="p6" data-type="single">
+<pre><code class="language-python">stock = {("sklep", 1): 10}
+stock[("sklep", 1)] += 5
+unique = set([3, 1, 3, 2, 1])
+print(stock, len(unique))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>{('sklep', 1): 15} 3</code><span class="why">Tak. Ta sama krotka trafia w ten sam klucz, a zbiór zostawia trzy różne wartości.</span></li>
+          <li><code>{('sklep', 1): 10, ('sklep', 1): 5} 5</code><span class="why">Słownik ma jeden wpis na klucz, a zbiór nie trzyma powtórzeń.</span></li>
+          <li>Błąd: krotka nie może być kluczem<span class="why">Może, bo jest niezmienna. Kluczem nie może być lista.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="comprehensions">
+      <h2>Comprehensions</h2>
+
+      <p>Pętla, która buduje nową kolekcję z elementów starej, ma w Pythonie krótszy zapis. Czyta się go jak zdanie: "weź <em>to</em> dla każdego elementu, który spełnia <em>warunek</em>".</p>
+
+<pre><code class="language-python">known = []
+for value in values:
+    if value is not None:
+        known.append(value)
+
+known = [value for value in values if value is not None]      # to samo
+by_name = {name: sum(v) for name, v in series.items()}        # słownik
+codes = {name[0] for name in series}                          # zbiór</code></pre>
+
+      <p>Comprehension to wyrażenie, więc tworzy nową kolekcję i niczego nie zmienia po drodze. To pasuje do reguły "funkcja zwraca nowy obiekt". Kiedy logika ma więcej niż jeden warunek i jedno przekształcenie, zwykła pętla jest czytelniejsza. Nie ma nagrody za zmieszczenie wszystkiego w jednej linii.</p>
+
+      <div class="predict" id="p7" data-type="single">
+<pre><code class="language-python">values = [0, 2, None, 0, 5]
+print([v * 10 for v in values if v])</code></pre>
+        <ul class="quiz-options">
+          <li><code>[0, 20, 0, 50]</code><span class="why">Warunek <code>if v</code> odrzuca wszystko, co jest fałszywe w kontekście logicznym, a 0 jest fałszywe tak samo jak None.</span></li>
+          <li data-correct><code>[20, 50]</code><span class="why">Tak. <code>if v</code> odrzuca None, ale też zera. Jeśli chodzi Ci tylko o braki, pisz <code>if v is not None</code>.</span></li>
+          <li>Błąd: nie można mnożyć None<span class="why">None nie dochodzi do mnożenia, bo odpada w warunku.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p>Zero sprzedaży to informacja, a brak pomiaru to jej brak. W danych o popycie <code>if v</code> po cichu wyrzuca zera razem z brakami. Pisz warunek, który mówi dokładnie, o co Ci chodzi.</p>
+      </div>
+    </section>
+
+    <section id="generatory">
+      <h2>Iteracja i generatory</h2>
+
+      <p>Pętla <code>for</code> działa na wszystkim, co da się iterować: listach, słownikach (po kluczach), plikach (po liniach), zakresach. Pod spodem Python prosi obiekt o kolejne elementy, aż ten powie, że ich nie ma.</p>
+
+      <p><strong>Generator</strong> to funkcja, która zamiast <code>return</code> ma <code>yield</code>. Nie liczy wszystkiego od razu. Oddaje jeden element, zatrzymuje się i czeka, aż pętla poprosi o następny. Dzięki temu plik z milionem linii możesz przetwarzać linia po linii, trzymając w pamięci jedną.</p>
+
+<pre><code class="language-python">def data_lines(lines):
+    for line in lines:
+        if not line.startswith("#"):
+            yield line.strip()</code></pre>
+
+      <div class="predict" id="p8" data-type="single">
+<pre><code class="language-python">def numbers():
+    print("start")
+    yield 1
+    print("po jedynce")
+    yield 2
+
+gen = numbers()
+print("utworzony")
+print(next(gen))</code></pre>
+        <ul class="quiz-options">
+          <li><code>start</code>, <code>utworzony</code>, <code>1</code><span class="why">Wywołanie <code>numbers()</code> nie uruchamia ciała funkcji. Tworzy tylko generator.</span></li>
+          <li data-correct><code>utworzony</code>, <code>start</code>, <code>1</code><span class="why">Tak. Ciało rusza dopiero przy pierwszym <code>next</code> i zatrzymuje się na pierwszym <code>yield</code>. "po jedynce" jeszcze się nie wypisało.</span></li>
+          <li><code>utworzony</code>, <code>start</code>, <code>1</code>, <code>po jedynce</code>, <code>2</code><span class="why"><code>next</code> prosi o jeden element, nie o wszystkie.</span></li>
+        </ul>
+      </div>
+
+      <p>Generator można przejść tylko raz. Druga pętla po tym samym generatorze nie zobaczy żadnego elementu. Jeśli potrzebujesz danych dwa razy, zapisz je do listy: <code>list(gen)</code>.</p>
+    </section>
+
+    <section id="pliki">
+      <h2>Pliki i <code>with</code></h2>
+
+      <p>Otwarty plik trzeba zamknąć, także wtedy, gdy w trakcie czytania poleci błąd. Robi to za Ciebie <code>with</code>: blok kończy się zamknięciem pliku, bez względu na to, jak się kończy.</p>
+
+<pre><code class="language-python">from pathlib import Path
+
+path = Path("data/raw/car_parts/car_parts_dataset_with_missing_values.tsf")
+with path.open(encoding="utf-8") as handle:
+    for line in handle:          # plik jest iterowalny: linia po linii
+        ...
+# tutaj plik jest już zamknięty</code></pre>
+
+      <p>Dwa nawyki na cały kurs:</p>
+      <ul>
+        <li>Ścieżki składasz z <code>pathlib.Path</code> operatorem <code>/</code>, nie sklejasz napisów. <code>Path("data") / "raw" / "plik.tsf"</code> działa tak samo w Linuksie i w Windows.</li>
+        <li>Zawsze podajesz <code>encoding="utf-8"</code>. Domyślne kodowanie zależy od systemu, a polskie znaki i symbole walut rozjeżdżają się pierwsze.</li>
+      </ul>
+
+      <p><code>with</code> działa z każdym obiektem, który umie się "otworzyć" i "zamknąć": plikiem, połączeniem z bazą, blokadą. Takie obiekty nazywa się <strong>context managerami</strong>. Własny napiszesz w module 02.</p>
+    </section>
+
+    <section id="wyjatki">
+      <h2>Wyjątki</h2>
+
+      <p>Wyjątek to sygnał "nie mogę zrobić tego, o co prosisz". Ma typ i komunikat. Typ mówi, co za problem (<code>ValueError</code>: zła wartość, <code>KeyError</code>: brak klucza, <code>FileNotFoundError</code>: brak pliku), komunikat mówi szczegóły.</p>
+
+<pre><code class="language-python">def parse_value(text):
+    if text == "?":
+        return None
+    try:
+        return float(text)
+    except ValueError as error:
+        raise ValueError(f"Not a number: {text!r}") from error</code></pre>
+
+      <p>Trzy zasady:</p>
+      <ul>
+        <li><strong>Łap konkretny typ.</strong> <code>except ValueError</code>, nie gołe <code>except</code>. Gołe łapie wszystko, także literówkę w nazwie zmiennej i Ctrl+C.</li>
+        <li><strong>Nie połykaj.</strong> <code>except: pass</code> zamienia błąd w cichy zły wynik. Jeśli łapiesz, to po to, żeby coś zrobić: dodać kontekst i rzucić dalej, albo świadomie obsłużyć.</li>
+        <li><strong>Komunikat z wartością.</strong> "Not a number: 'abc'" od razu mówi, co poszło nie tak. "Invalid input" nie mówi nic.</li>
+      </ul>
+
+      <div class="predict" id="p9" data-type="single">
+<pre><code class="language-python">def safe_total(values):
+    total = 0
+    for v in values:
+        try:
+            total += float(v)
+        except:
+            pass
+    return total
+
+print(safe_total(["1", "2", "?", "3O"]))</code></pre>
+        <ul class="quiz-options">
+          <li><code>6.0</code><span class="why">"3O" to trzy i litera O, nie zero. <code>float</code> go nie odczyta.</span></li>
+          <li data-correct><code>3.0</code><span class="why">Tak. "?" i "3O" po cichu wypadły. Funkcja zwraca liczbę, która wygląda wiarygodnie, a jest zła. Tak wygląda cichy błąd.</span></li>
+          <li>Błąd: <code>ValueError</code><span class="why">Byłby, gdyby nie <code>except: pass</code>. I to byłoby lepsze zakończenie.</span></li>
+        </ul>
+      </div>
+
+      <div class="callout rule">
+        <span class="label">Reguła</span>
+        <p><code>except</code> łapie konkretny typ. Bez gołego <code>except</code> i bez <code>except: pass</code>.</p>
+      </div>
+    </section>
+
     <section id="cwiczenie">
-      <h2>Twoja kolej</h2>
+      <h2>Ćwiczenia</h2>
+
+      <h3>Rabat bez skutków ubocznych</h3>
 
       <p>Napisz funkcję, która stosuje rabat do listy cen. Ma zwrócić <strong>nową</strong> listę. Lista wejściowa ma zostać nietknięta. Ceny zaokrąglij do dwóch miejsc.</p>
 
@@ -176,12 +353,34 @@ assert apply_discount([], 0.5) == [], "Dla pustej listy wynik to pusta lista."
       </div>
 
       <p>Przycisk "Sprawdź" uruchamia Twój kod, a po nim kilka testów. Jeśli któryś nie przejdzie, komunikat powie który.</p>
+
+      <h3>Tylko znane wartości</h3>
+
+      <p>Napisz generator <code>known</code>, który przechodzi po wartościach i oddaje tylko te, które nie są <code>None</code>. Zera zostają.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+def known(values):
+    """Yield the values that are not None, in order."""
+    ...
+
+
+print(list(known([0, None, 2, None, 0])))
+</script>
+        <script type="text/x-python" data-role="test">
+import types
+_gen = known([0, None, 2])
+assert isinstance(_gen, types.GeneratorType), "known ma być generatorem: użyj yield."
+assert list(_gen) == [0, 2], "Dla [0, None, 2] oczekiwano [0, 2]: zero zostaje, None odpada."
+assert list(known([])) == [], "Dla pustej listy generator nic nie oddaje."
+</script>
+      </div>
     </section>
 
     <div class="next">
-      <h2>Dalej</h2>
-      <p>Pełny moduł 01 obejmie jeszcze comprehensions, generatory, pliki i wyjątki, a lab poprowadzi przez parsowanie zbioru Monash Car Parts w czystym Pythonie.</p>
-      <p><a href="../index.html">Wróć do mapy kursu</a></p>
+      <h2>Teraz lab</h2>
+      <p>Napiszesz parser formatu <code>.tsf</code> i policzysz statystyki popytu 2 674 serii części samochodowych w czystym Pythonie, bez pandas. Około 6 godzin.</p>
+      <p>Otwórz <code>labs/01-python-data/01-python-data.ipynb</code> w VS Code albo uruchom <code>uv run jupyter lab</code>.</p>
     </div>
   </main>
 </div>

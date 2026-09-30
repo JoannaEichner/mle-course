@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10 · Drzewa i boosting | ML Engineering from Scratch</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body data-module="10">
+
+<header class="topbar">
+  <a class="brand" href="../index.html">ML Engineering from Scratch</a>
+  <span class="crumb">10 · Drzewa i boosting</span>
+  <span class="spacer"></span>
+  <span class="score"></span>
+  <button class="icon-button" id="theme-toggle" type="button" aria-label="Przełącz motyw jasny i ciemny"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+</header>
+<div class="progress-line"></div>
+
+<div class="page with-toc">
+  <nav class="toc" aria-label="Spis treści">
+    <p>W tym wykładzie</p>
+    <ol></ol>
+  </nav>
+
+  <main class="lecture">
+    <p class="kicker">Moduł 10 · Część 2: dane i ML</p>
+    <h1>Drzewa i boosting</h1>
+    <p class="lede">Na danych tabelarycznych, czyli wierszach z kolumnami liczb i kategorii, najczęściej wygrywa boosting drzew decyzyjnych. Nie wymaga skalowania cech, radzi sobie z brakami, sam znajduje interakcje i nieliniowości. Ten moduł buduje go od pojedynczego podziału w górę.</p>
+
+    <ul class="meta">
+      <li><b>Czas:</b> około 60 minut</li>
+      <li><b>Wymagane:</b> moduły 08 i 09</li>
+      <li><b>Potem:</b> <a href="../../labs/10-trees-boosting/README.md">lab 10</a>, około 7 godzin</li>
+    </ul>
+
+    <p>Po tym wykładzie będziesz umiał:</p>
+    <ul>
+      <li>wyjaśnić, jak drzewo regresyjne wybiera podział i co przewiduje w liściu,</li>
+      <li>odróżnić las losowy od boostingu i wyjaśnić, czemu oba działają,</li>
+      <li>ustawić LightGBM: liczba drzew, early stopping, kategorie, funkcja celu, ograniczenia monotoniczne,</li>
+      <li>czytać ważność cech i wartości SHAP i wiedzieć, czego nie mówią,</li>
+      <li>wybrać między prognozą bezpośrednią a rekurencyjną.</li>
+    </ul>
+
+    <section id="drzewo">
+      <h2>Drzewo decyzyjne</h2>
+
+      <p>Drzewo regresyjne zadaje pytania o cechy ("czy średnia z tych samych dni tygodnia ≤ 1.07?") i dzieli wiersze na grupy. W każdym liściu przewiduje średnią celu w tej grupie. Podział wybiera zachłannie: sprawdza każdą cechę i każdy próg i bierze ten, po którym suma kwadratów odchyleń od średnich w obu grupach spada najbardziej.</p>
+
+      <div class="predict" id="p1" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+x = np.array([1, 2, 3, 10, 11, 12])
+y = np.array([5.0, 6.0, 7.0, 20.0, 21.0, 22.0])
+left, right = y[x &lt;= 6.5], y[x &gt; 6.5]
+
+def sse(values):
+    return ((values - values.mean()) ** 2).sum()
+
+print(left.mean(), right.mean(), sse(y) - sse(left) - sse(right))</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>6.0 21.0 337.5</code><span class="why">Tak. Liście przewidują 6 i 21. Błąd przed podziałem to 341.5, po podziale 2 + 2, więc zysk 337.5.</span></li>
+          <li><code>13.5 13.5 0.0</code><span class="why">13.5 to średnia wszystkich wierszy, czyli prognoza przed podziałem.</span></li>
+          <li><code>6.0 21.0 4.0</code><span class="why">4.0 to błąd po podziale. Zysk to różnica: błąd przed minus błąd po.</span></li>
+        </ul>
+      </div>
+
+      <p>Drzewo ma cechy, których nie ma model liniowy:</p>
+      <ul>
+        <li>nie potrzebuje skalowania, bo patrzy tylko na kolejność wartości,</li>
+        <li>samo znajduje interakcje: "rabat pomaga, ale tylko w weekend" to dwa kolejne podziały,</li>
+        <li>przewiduje stałą w każdym liściu, więc <strong>nie ekstrapoluje</strong>.</li>
+      </ul>
+
+      <div class="predict" id="p2" data-type="single">
+<pre><code class="language-python">import numpy as np
+from sklearn.tree import DecisionTreeRegressor
+
+x = np.arange(10).reshape(-1, 1)
+y = 2.0 * np.arange(10)
+tree = DecisionTreeRegressor().fit(x, y)
+print(tree.predict([[20]]))</code></pre>
+        <ul class="quiz-options">
+          <li><code>[40.]</code><span class="why">Tak przewidziałby model liniowy. Drzewo nie zna "linii". Zna tylko liście.</span></li>
+          <li data-correct><code>[18.]</code><span class="why">Tak. 20 trafia do liścia z największymi wartościami x, a ten przewiduje 18. Drzewo nie wychodzi poza zakres celu z treningu.</span></li>
+          <li><code>[9.]</code><span class="why">9 to największe x, a nie przewidywany cel.</span></li>
+        </ul>
+      </div>
+
+      <p>Pojedyncze drzewo ma kłopot: płytkie jest za proste, głębokie zapamiętuje szum. W labie drzewo o głębokości 20 ma WAPE 0.17 na treningu i 0.58 na walidacji. Dwa pomysły naprawiają to przez łączenie wielu drzew.</p>
+    </section>
+
+    <section id="las">
+      <h2>Las losowy</h2>
+
+      <p>Las losowy uczy wiele głębokich drzew, każde na losowej próbce wierszy (<strong>bagging</strong>) i z losowym podzbiorem cech przy każdym podziale. Prognoza to średnia drzew. Każde drzewo z osobna jest przeuczone, ale każde inaczej, więc ich błędy się częściowo znoszą. Las zmniejsza <strong>wariancję</strong> i prawie nie zwiększa obciążenia.</p>
+
+      <p>Drzewa lasu są niezależne, więc uczą się równolegle, a więcej drzew nie szkodzi, tylko przestaje pomagać.</p>
+    </section>
+
+    <section id="boosting">
+      <h2>Boosting</h2>
+
+      <p>Boosting łączy drzewa inaczej: po kolei. Każde nowe drzewo, zwykle płytkie, uczy się błędów sumy poprzednich. Dokładniej: uczy się ujemnego gradientu straty, a dla MSE to po prostu reszty, czyli różnica prawdy i dotychczasowej prognozy. Do sumy trafia z mnożnikiem, <strong>krokiem uczenia</strong>:</p>
+
+<pre><code class="language-text">prognoza₀ = średnia celu
+resztaₜ   = y − prognozaₜ₋₁
+drzewoₜ   = drzewo dopasowane do resztaₜ
+prognozaₜ = prognozaₜ₋₁ + krok · drzewoₜ</code></pre>
+
+      <div class="predict" id="p3" data-type="single">
+<pre><code class="language-python">import numpy as np
+
+y = np.array([3.0, 5.0, 10.0])
+prediction = np.full(3, y.mean())
+residual = y - prediction
+# a tree that fits the residuals exactly, added with learning rate 0.5
+prediction = prediction + 0.5 * residual
+print(prediction)</code></pre>
+        <ul class="quiz-options">
+          <li><code>[ 3.  5. 10.]</code><span class="why">Tak byłoby z krokiem 1. Krok 0.5 poprawia tylko połowę błędu.</span></li>
+          <li data-correct><code>[4.5 5.5 8. ]</code><span class="why">Tak. Start od średniej 6, reszty −3, −1, 4, połowa każdej dodana. Następne drzewo poprawi połowę tego, co zostało.</span></li>
+          <li><code>[6. 6. 6.]</code><span class="why">To prognoza przed pierwszym drzewem.</span></li>
+        </ul>
+      </div>
+
+      <p>W boostingu liczba drzew ma znaczenie. Za mało to niedouczenie, za dużo to dopasowanie szumu. Sprawdź to w widżecie: niebieskie punkty to trening, puste to punkty odłożone, których model nie widzi.</p>
+
+      <figure class="widget" id="boosting-widget">
+        <p class="widget-title">Boosting pieńków na jednej cesze</p>
+        <p class="widget-sub">Każde drzewo ma jeden podział. Przesuwaj liczbę drzew i zmieniaj krok uczenia.</p>
+        <div class="controls">
+          <label>drzewa <input type="range" min="0" max="200" step="5" value="10" data-role="rounds"> <output data-role="rounds-value"></output></label>
+          <label>krok uczenia <input type="range" min="0" max="2" step="1" value="1" data-role="rate"> <output data-role="rate-value"></output></label>
+        </div>
+        <div data-role="chart"></div>
+        <div class="stat-row" data-role="stats"></div>
+        <p class="verdict" data-role="verdict" role="status"></p>
+      </figure>
+
+      <p>Mniejszy krok wymaga więcej drzew, ale zwykle daje lepszy model. Liczbę drzew wybiera się <strong>early stopping</strong>: trening przerywa się, gdy błąd na walidacji przestaje spadać przez kilkadziesiąt rund, i zostawia najlepszą liczbę drzew. To decyzja podjęta na walidacji, więc wynik walidacji jest potem odrobinę zbyt optymistyczny.</p>
+
+      <div class="quiz" id="q1" data-type="single">
+        <div class="quiz-q">Czym las losowy i boosting różnią się najbardziej?</div>
+        <ul class="quiz-options">
+          <li>Las używa drzew, boosting innych modeli.<span class="why">Oba łączą drzewa decyzyjne.</span></li>
+          <li data-correct>W lesie drzewa są głębokie i niezależne, a ich prognozy się uśrednia. W boostingu drzewa są płytkie i kolejne poprawia błędy poprzednich.<span class="why">Tak. Las zmniejsza wariancję głębokich drzew, boosting zmniejsza obciążenie płytkich.</span></li>
+          <li>Boosting nie może się przeuczyć.<span class="why">Może, i to wyraźnie, co widać w widżecie. Dlatego potrzebny jest early stopping.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="lightgbm">
+      <h2>LightGBM</h2>
+
+      <p>LightGBM to szybka implementacja boostingu. Najważniejsze ustawienia:</p>
+
+      <table>
+        <thead><tr><th>Ustawienie</th><th>Co robi</th></tr></thead>
+        <tbody>
+          <tr><td><code>num_boost_round</code> + early stopping</td><td>liczba drzew, wybrana na walidacji</td></tr>
+          <tr><td><code>learning_rate</code></td><td>krok uczenia, zwykle 0.02-0.1</td></tr>
+          <tr><td><code>num_leaves</code>, <code>min_child_samples</code></td><td>złożoność drzewa i najmniejszy liść. Większe liście to mniej szumu</td></tr>
+          <tr><td><code>objective</code></td><td>funkcja straty: <code>regression</code> (MSE), <code>poisson</code>, <code>tweedie</code> dla nieujemnych zliczeń z długim ogonem</td></tr>
+          <tr><td>kolumny <code>category</code></td><td>natywne kategorie: drzewo grupuje wartości kategorii w podziale, bez one-hot i bez target encoding</td></tr>
+          <tr><td><code>monotone_constraints</code></td><td>wymuszony kierunek zależności od cechy</td></tr>
+        </tbody>
+      </table>
+
+      <p><strong>Kategorie.</strong> Identyfikatory sklepu i produktu jako natywne kategorie to w labie największy pojedynczy zysk z ustawień modelu: WAPE z 0.396 na 0.357. Pułapka: kod kategorii musi być w treningu i w prognozie ten sam. Dlatego <code>LightGBMForecaster</code> zapamiętuje listę kategorii z treningu i koduje nią każde dane.</p>
+
+      <p><strong>Ograniczenie monotoniczne.</strong> Wiesz, że niższa cena nie obniża popytu. Drzewa tego nie wiedzą i na małych grupach potrafią nauczyć się odwrotności z szumu. Ograniczenie wymusza kierunek. W labie prawie nie zmienia WAPE, ale gwarantuje, że prognoza zareaguje na obniżkę ceny rozsądnie. Model, któremu zaufa dział promocji, jest wart więcej niż 0.002 WAPE.</p>
+
+      <div class="quiz" id="q2" data-type="single">
+        <div class="quiz-q">Model ma <code>product_id</code> jako kategorię. W przyszłym tygodniu pojawia się nowy produkt, którego nie było w treningu. Co dostanie LightGBM?</div>
+        <ul class="quiz-options">
+          <li>Błąd przy prognozie.<span class="why"><code>LightGBMForecaster</code> koduje nieznaną kategorię jako brak, a LightGBM obsługuje braki.</span></li>
+          <li data-correct>Brak wartości w tej cesze. Prognoza opiera się na pozostałych cechach.<span class="why">Tak. Ale nowy produkt nie ma też historii sprzedaży, więc prognoza będzie słaba. Nowe produkty to osobny problem ("zimny start").</span></li>
+          <li>Kod najbliższego znanego produktu.<span class="why">Kody kategorii nie mają "bliskości". Produkt 301 nie jest podobny do 300.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="knn">
+      <h2>kNN dla kontrastu</h2>
+
+      <p>Zupełnie inny pomysł: nie ucz się niczego, tylko zapamiętaj trening. Prognoza dla nowego wiersza to średnia celu <code>k</code> najbliższych wierszy treningu. "Najbliższe" zależy od skali cech, więc je standaryzujesz. kNN nie ma fazy uczenia, za to prognoza wymaga porównania z każdym wierszem treningu. Dla ćwierć miliona wierszy to wolne, a w wielu wymiarach wszyscy sąsiedzi są "daleko". Działa czasem zaskakująco dobrze i jest świetnym punktem odniesienia.</p>
+    </section>
+
+    <section id="interpretacja">
+      <h2>Co model wykorzystał</h2>
+
+      <p><strong>Ważność cech</strong> (gain) to udział cechy w łącznym spadku błędu na podziałach wszystkich drzew. Mówi, czego model używał. Nie mówi, co by się stało bez cechy: gdy dwie cechy niosą tę samą informację, model może używać jednej, a usunięcie jej nic nie zmieni, bo przejmie ją druga.</p>
+
+      <p><strong>Wartości SHAP</strong> rozkładają pojedynczą prognozę na wkłady cech: wartość bazowa (średnia prognoza) plus wkład każdej cechy równa się prognozie. Odpowiadają na pytanie "dlaczego ten produkt w ten dzień ma prognozę 6 sztuk".</p>
+
+      <div class="callout trap">
+        <span class="label">Pułapka</span>
+        <p>Ani ważność, ani SHAP nie mówią o przyczynach. Duży wkład rabatu znaczy, że model wiąże rabat ze sprzedażą. Nie znaczy, że obniżka ceny zwiększy sprzedaż o tyle, bo rabaty mogą dostawać produkty, które i tak się dobrze sprzedają.</p>
+      </div>
+    </section>
+
+    <section id="prognoza">
+      <h2>Prognoza bezpośrednia i rekurencyjna</h2>
+
+      <p>Model przewiduje jeden dzień naraz. Na tydzień naprzód są dwa sposoby:</p>
+      <ul>
+        <li><strong>bezpośrednia</strong>: cechy znane dla całego horyzontu (lagi ≥ 7), cały tydzień jednym przebiegiem. Prosta i szybka, ale model nie widzi ostatnich dni,</li>
+        <li><strong>rekurencyjna</strong>: model z lagiem 1 prognozuje jutro, prognoza trafia do historii jako "sprzedaż", potem pojutrze i tak dalej. Widzi świeże dane, ale od drugiego dnia jego "wczoraj" to jego własna prognoza, więc błędy mogą się nakładać.</li>
+      </ul>
+
+      <div class="quiz" id="q3" data-type="single">
+        <div class="quiz-q">W labie prognoza rekurencyjna ma WAPE 0.350, bezpośrednia 0.360, a rekurencyjna liczy się 10 razy dłużej. Którą wybierasz do produkcji?</div>
+        <ul class="quiz-options">
+          <li>Rekurencyjną, bo ma lepszy wynik.<span class="why">0.010 na jednym tygodniu może być szumem. Zanim zapłacisz złożonością, sprawdź na kilku tygodniach (moduł 11).</span></li>
+          <li data-correct>Na razie bezpośrednią, i sprawdzam różnicę w backteście na kilku tygodniach.<span class="why">Tak. Prostsza metoda wygrywa, dopóki bardziej złożona nie pokaże przewagi, która nie jest przypadkiem.</span></li>
+          <li>Bezpośrednią, bo rekurencyjna zawsze kumuluje błędy.<span class="why">Nie zawsze. Tu nie kumuluje wyraźnie: błąd siódmego dnia jest podobny do pierwszego.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="cwiczenie">
+      <h2>Ćwiczenia</h2>
+
+      <h3>Zysk podziału</h3>
+
+      <p>Napisz <code>split_gain(x, y, threshold)</code>: suma kwadratów odchyleń przed podziałem minus suma po obu stronach. Pusta strona ma błąd 0.</p>
+
+      <div class="pyrun" id="e1">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def split_gain(x, y, threshold):
+    """Error reduction of the split x <= threshold."""
+    ...
+
+
+x = np.array([1, 2, 3, 10, 11, 12])
+y = np.array([5.0, 6.0, 7.0, 20.0, 21.0, 22.0])
+print(split_gain(x, y, 6.5), split_gain(x, y, 2.5))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_x = _np.array([1, 2, 3, 10, 11, 12])
+_y = _np.array([5.0, 6.0, 7.0, 20.0, 21.0, 22.0])
+assert abs(split_gain(_x, _y, 6.5) - 337.5) < 1e-9, f"Podział na 6.5 ma zysk 337.5. Jest {split_gain(_x, _y, 6.5)}."
+assert split_gain(_x, _y, 6.5) > split_gain(_x, _y, 2.5), "Podział między grupami ma większy zysk niż podział w środku grupy."
+assert abs(split_gain(_x, _y, 100)) < 1e-9, "Gdy wszystkie wiersze idą w lewo, zysk wynosi 0."
+</script>
+      </div>
+
+      <h3>Prognoza kNN</h3>
+
+      <p>Napisz <code>knn_predict(X, y, point, k)</code>: średnia celu <code>k</code> wierszy <code>X</code> najbliższych punktowi w odległości euklidesowej.</p>
+
+      <div class="pyrun" id="e2">
+        <script type="text/x-python" data-role="starter">
+import numpy as np
+
+
+def knn_predict(X, y, point, k):
+    """Mean target of the k rows of X closest to point."""
+    ...
+
+
+X = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [5.0, 5.0]])
+y = np.array([1.0, 2.0, 3.0, 100.0])
+print(knn_predict(X, y, np.array([0.2, 0.2]), k=3))
+</script>
+        <script type="text/x-python" data-role="test">
+import numpy as _np
+_X = _np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [5.0, 5.0]])
+_y = _np.array([1.0, 2.0, 3.0, 100.0])
+assert abs(knn_predict(_X, _y, _np.array([0.2, 0.2]), 3) - 2.0) < 1e-9, "Trzej najbliżsi mają cele 1, 2, 3: średnia 2."
+assert abs(knn_predict(_X, _y, _np.array([4.0, 4.0]), 1) - 100.0) < 1e-9, "Najbliższy punktowi (4, 4) jest (5, 5)."
+assert abs(knn_predict(_X, _y, _np.array([0.0, 0.0]), 4) - 26.5) < 1e-9, "Dla k równego liczbie wierszy wynik to średnia wszystkich: 26.5."
+</script>
+      </div>
+    </section>
+
+    <div class="next">
+      <h2>Teraz lab</h2>
+      <p>Napiszesz podział drzewa w NumPy, porównasz drzewo, las, kNN i boosting, zbudujesz <code>LightGBMForecaster</code> z kategoriami, early stopping i ograniczeniem monotonicznym, rozłożysz prognozę na wkłady cech i przewidzisz cały tydzień testowy na dwa sposoby. Około 7 godzin.</p>
+      <p>Otwórz <code>labs/10-trees-boosting/10-trees-boosting.ipynb</code>.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="footer">
+  ML Engineering from Scratch · Jakub Eichner · treści na licencji CC BY 4.0, kod na licencji MIT · dane: FreshRetailNet-50K (CC BY 4.0, Dingdong-Inc)
+</footer>
+
+<script src="../assets/highlight.min.js"></script>
+<script src="../assets/course.js"></script>
+<script src="widgets.js"></script>
+</body>
+</html>
