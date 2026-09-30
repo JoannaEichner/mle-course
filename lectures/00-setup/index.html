@@ -116,10 +116,10 @@ memory=12GB</code></pre>
 
       <ol class="steps">
         <li class="step" id="s-apt">
-          <h3>Zainstaluj git i curl</h3>
+          <h3>Zainstaluj git, curl i libgomp</h3>
 <pre><code class="language-bash">sudo apt update
-sudo apt install -y git curl</code></pre>
-          <p><code>sudo</code> poprosi o hasło konta linuksowego.</p>
+sudo apt install -y git curl libgomp1</code></pre>
+          <p><code>sudo</code> poprosi o hasło konta linuksowego. <code>libgomp1</code> to biblioteka systemowa, bez której nie uruchomi się LightGBM z modułu 10.</p>
           <p><strong>Sprawdzenie:</strong></p>
 <pre><code class="language-bash">git --version</code></pre>
           <label class="tick"><input type="checkbox"> Zrobione</label>

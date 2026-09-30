@@ -45,11 +45,17 @@ class Block:
             raise ValueError(f"Line {number}: stub lines must start with '#|'.")
 
     def lines(self, solved: bool) -> list[str]:
-        """Return the reference lines, or the stub when the block is unsolved."""
+        """Return the reference lines, or the stub when the block is unsolved.
+
+        A block without a stub marker gets a ``NotImplementedError`` line. A
+        stub marker with no lines after it means the unsolved code is empty,
+        which is how a ticket adds code that did not exist before.
+        """
         if solved:
             return self.solution
-        default = f'{self.indent}raise NotImplementedError("Zadanie {self.task}")'
-        return self.stub or [default]
+        if self.in_stub:
+            return self.stub
+        return [f'{self.indent}raise NotImplementedError("Zadanie {self.task}")']
 
 
 def module_of(task_id: str) -> int:

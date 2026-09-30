@@ -48,6 +48,9 @@ OOS_HOURS = "oos_hours"
 OOS_HOURS_TOTAL = "oos_hours_total"
 SALES_IN_STOCK = "sales_in_stock"
 SALES_WHILE_OOS = "sales_while_oos"
+# Known only after the day is over. They can describe the past but must be
+# blank on the days being forecast.
+OUTCOME_COLUMNS = [TARGET, OOS_HOURS, OOS_HOURS_TOTAL, SALES_IN_STOCK, SALES_WHILE_OOS]
 PROCESSED_COLUMNS = [
     *SERIES_KEY,
     CITY,

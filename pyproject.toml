@@ -15,10 +15,20 @@ dependencies = [
     "holidays>=0.60",
     "jupyterlab>=4.2",
     "ipykernel>=6.29",
+    "scikit-learn>=1.6",
+    "lightgbm>=4.5",
+    "optuna>=4.1",
+    "mlflow>=3.0",
+    "pydantic-settings>=2.6",
+    "pyyaml>=6.0",
+    "boto3>=1.35",
+    "duckdb>=1.1",
+    "openpyxl>=3.1",
 ]
 
 [project.scripts]
 course = "coursekit.cli:main"
+freshcast = "freshcast.cli:main"
 
 [dependency-groups]
 dev = [
@@ -27,11 +37,19 @@ dev = [
     "mypy>=1.13",
     "pandas-stubs>=2.2",
     "pre-commit>=4.0",
+    "moto[s3,server]>=5.0",
+    "freezegun>=1.5",
+    "types-pyyaml>=6.0.12.20260906",
+    "boto3-stubs[s3]>=1.43.105",
 ]
 # Only for building the learner view and verifying the course (solutions branch).
 authoring = [
     "jupytext>=1.16",
     "nbclient>=0.10",
+]
+neural = [
+    "lightning>=2.5",
+    "torch>=2.9",
 ]
 
 [build-system]
@@ -44,10 +62,16 @@ packages = ["src/freshcast", "src/coursekit"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-extend-exclude = ["_main", "labs"]
+# shelfwise is a separate, deliberately imperfect codebase with its own rules.
+extend-exclude = ["_main", "labs", "shelfwise"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "PD", "C90"]
+[tool.ruff.lint.per-file-ignores]
+# Check messages are full Polish sentences with the values seen; splitting
+# them at 88 characters makes them harder to read, not easier.
+"src/coursekit/checks/*" = ["E501"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
@@ -56,14 +80,25 @@ known-first-party = ["freshcast", "coursekit"]
 
 [tool.mypy]
 python_version = "3.12"
+plugins = ["pydantic.mypy"]
 files = ["src"]
 warn_return_any = true
 show_error_codes = true
 disallow_untyped_defs = true
-exclude = ["_main/"]
+exclude = ["_main/", "shelfwise/"]
 
 [[tool.mypy.overrides]]
-module = ["pyarrow.*", "holidays.*", "jupytext.*"]
+module = [
+    "pyarrow.*",
+    "holidays.*",
+    "jupytext.*",
+    "sklearn.*",
+    "lightgbm.*",
+    "optuna.*",
+    "mlflow.*",
+    "duckdb.*",
+    "joblib.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

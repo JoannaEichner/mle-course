@@ -2,7 +2,9 @@
 
 The reference lives on the ``solutions`` branch. Catching up to module N
 rewrites every package file that has tasks from earlier modules: those tasks
-get the reference code, tasks from module N onward stay as stubs.
+get the reference code, tasks from module N onward stay as stubs. Files the
+learner writes whole (a Dockerfile, a workflow) are copied from
+``reference/<module>/``.
 """
 
 import subprocess
@@ -12,7 +14,7 @@ from pathlib import Path
 from coursekit import markers, paths
 
 _CANDIDATE_REFS = ("solutions", "origin/solutions", "upstream/solutions")
-_TRACKED_DIRS = ("src/freshcast", "tests")
+_TRACKED_DIRS = ("src/freshcast", "tests", "shelfwise")
 
 
 def _git(*args: str) -> str | None:
@@ -74,4 +76,32 @@ def catch_up(module: int) -> list[Path]:
             encoding="utf-8",
         )
         rewritten.append(Path(name))
+    rewritten.extend(_copy_whole_files(ref, module, backup_dir))
     return rewritten
+
+
+def _copy_whole_files(ref: str, module: int, backup_dir: Path) -> list[Path]:
+    """Copy reference files that have no stub, such as a Dockerfile.
+
+    They live under ``reference/<module>/<path>`` on the solutions branch
+    and belong at ``<path>`` in the repository.
+    """
+    listing = _git("ls-tree", "-r", "--name-only", ref, "--", "reference") or ""
+    copied = []
+    for name in listing.splitlines():
+        _, owner, *rest = Path(name).parts
+        if not owner.isdigit() or int(owner) >= module:
+            continue
+        content = _git("show", f"{ref}:{name}")
+        if content is None:
+            continue
+        relative = Path(*rest)
+        target = paths.ROOT / relative
+        if target.is_file():
+            backup = backup_dir / relative
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            backup.write_bytes(target.read_bytes())
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        copied.append(relative)
+    return copied

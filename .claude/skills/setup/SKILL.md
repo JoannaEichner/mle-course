@@ -34,6 +34,7 @@ Setup is the one place where you act directly: run commands and fix what is brok
 | Doctor line | Fix |
 |---|---|
 | uv missing | `curl -LsSf https://astral.sh/uv/install.sh \| sh`, open a new shell, `uv sync` in the repository |
+| System libraries | `sudo apt install -y libgomp1`. LightGBM needs the OpenMP runtime, which a fresh Ubuntu lacks |
 | Python is not 3.12 | The command was run with the system Python. Use `uv run ...` |
 | Repo under `/mnt/` | Clone again under the Linux home (`~/mle-course`) and work there. File access on the Windows drive is many times slower |
 | Memory below 6 GB | WSL gives Linux half of the machine's RAM. Raise it in `%UserProfile%\.wslconfig` (`[wsl2]`, `memory=12GB`), then `wsl --shutdown` in PowerShell. Otherwise the `small` profile works |

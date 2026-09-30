@@ -14,8 +14,9 @@ __pycache__/
 
 # Dane i artefakty: pobierane i budowane lokalnie, nigdy w repo
 /data/
-/mlruns/
-/mlartifacts/
+mlruns/
+mlartifacts/
+mlflow.db
 
 # Lokalny stan kursanta (profil danych, postęp, kopie zapasowe)
 .course/

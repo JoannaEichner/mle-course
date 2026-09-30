@@ -30,12 +30,17 @@ class Task:
 
     ``graded`` is False for checks of the learner's machine (module 00).
     Course verification skips those: they have no reference solution.
+
+    ``starts_as`` is the status the check must report in the learner view
+    before any work: ``todo`` for code to write, ``fail`` for a ticket in
+    existing code that runs but misbehaves.
     """
 
     id: str
     title: str
     func: CheckFunction
     graded: bool = True
+    starts_as: Status = "todo"
 
 
 @dataclass(frozen=True)
@@ -52,14 +57,14 @@ _SYMBOL: dict[Status, str] = {"ok": "✓", "todo": "·", "fail": "✗", "error":
 
 
 def task(
-    task_id: str, title: str, *, graded: bool = True
+    task_id: str, title: str, *, graded: bool = True, starts_as: Status = "todo"
 ) -> Callable[[CheckFunction], CheckFunction]:
     """Register the decorated function as the check for ``task_id``."""
 
     def register(func: CheckFunction) -> CheckFunction:
         if task_id in _REGISTRY:
             raise ValueError(f"Duplicate check for task {task_id}.")
-        _REGISTRY[task_id] = Task(task_id, title, func, graded)
+        _REGISTRY[task_id] = Task(task_id, title, func, graded, starts_as)
         return func
 
     return register

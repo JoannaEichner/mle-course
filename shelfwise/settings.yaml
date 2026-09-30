@@ -1,0 +1,15 @@
+# Paths are relative to the shelfwise directory.
+lines_file: ../data/raw/online_retail/online_retail_II.parquet
+output_dir: output
+# Weeks start on this day (0 = Monday), the company calendar.
+week_start_day: 0
+# Products with fewer selling weeks are left out of forecasting.
+min_weeks: 26
+# Weeks held out for validation at the end of the history.
+validation_weeks: 8
+# Weeks of history used to set the current price of a product.
+price_lookback_weeks: 13
+# Weeks of stock the reorder suggestion should cover.
+cover_weeks: 2
+model:
+  alpha: 1.0

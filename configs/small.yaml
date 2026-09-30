@@ -1,0 +1,12 @@
+# One small city, for machines with little memory. About 44 thousand rows.
+data:
+  train_file: data/raw/freshretailnet/train.parquet
+  processed_dir: data/processed
+  cities: [14]
+model:
+  rounds: 400
+  in_stock_only: true
+backtest:
+  folds: 4
+  horizon: 7
+artifacts_dir: artifacts
