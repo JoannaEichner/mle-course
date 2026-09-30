@@ -3,7 +3,11 @@
 Reference files on the ``solutions`` branch wrap every piece of code the
 learner is asked to write in a block::
 
-    result = ...  # optional placeholder shown to the learner
+    # >>> SOLUTION 07.2
+    reference code
+    # --- STUB
+    #| result = ...  # optional placeholder shown to the learner
+    # <<< SOLUTION
 
 Rendering a file keeps the reference code of solved blocks and replaces the
 others with their stub. Marker lines never survive rendering.
