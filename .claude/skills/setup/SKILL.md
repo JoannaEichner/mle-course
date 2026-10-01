@@ -39,7 +39,7 @@ Setup is the one place where you act directly: run commands and fix what is brok
 | Repo under `/mnt/` | Clone again under the Linux home (`~/mle-course`) and work there. File access on the Windows drive is many times slower |
 | Memory below 6 GB | WSL gives Linux half of the machine's RAM. Raise it in `%UserProfile%\.wslconfig` (`[wsl2]`, `memory=12GB`), then `wsl --shutdown` in PowerShell. Otherwise the `small` profile works |
 | git identity | `git config --global user.name "..."` and `user.email "..."`, the address of their GitHub account |
-| Remote upstream | `git remote add upstream <course repository URL from README.md>` |
+| Remote upstream | `git remote add upstream https://github.com/RedHot099/mle-course.git` |
 | Data missing | `uv run course data` (about 110 MB). On a checksum mismatch stop and report it: the source file changed, and working around it would put every learner on different data |
 | `code` not found | VS Code is installed in Windows, not in Ubuntu, with the WSL extension (`ms-vscode-remote.remote-wsl`). Reopen the Ubuntu terminal after installing |
 | `nvidia-smi` fails | The NVIDIA driver is installed in Windows only, version 580 or newer. A Linux NVIDIA driver inside WSL breaks GPU access: if one was installed, remove it |

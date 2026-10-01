@@ -186,7 +186,7 @@ def check_git() -> list[Finding]:
                 "Remote upstream",
                 "warn",
                 "brak, nie pobierzesz aktualizacji kursu ani rozwiązań",
-                "git remote add upstream <adres repozytorium kursu>",
+                "git remote add upstream https://github.com/RedHot099/mle-course.git",
             )
         )
     return findings

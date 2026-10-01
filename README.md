@@ -12,6 +12,8 @@ Po kursie potrafisz wziąć zadanie w cudzym repozytorium i oddać pull request 
 
 ## Jak zacząć
 
+Repozytorium kursu: [github.com/RedHot099/mle-course](https://github.com/RedHot099/mle-course). Pracujesz we własnym forku, a to repozytorium dodajesz jako `upstream`.
+
 1. Otwórz [lekcję 00](lectures/00-setup/index.html) w przeglądarce i przejdź ją krok po kroku.
 2. Na końcu uruchom tutora (`claude`, potem `/setup`) albo dokończ ścieżką bez tutora.
 3. `uv run course check 00` pokazuje trzy zaliczone punkty. Zaczynasz moduł 01.
