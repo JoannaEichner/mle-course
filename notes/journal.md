@@ -1,0 +1,1 @@
+Kurs ma mi pomóc przyswoić wiedzę z zakresu machine learning. Za trzy miesiące chciałabym czuć się w tym teamcie cacłkiem dobrze i przede wszystkim wiedzieć co robię. Najtrudniejsze wydaje mi się zrozumienie tych wszystkich zależności.
