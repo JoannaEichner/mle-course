@@ -11,13 +11,25 @@ def score_forecast(
     Sales on a stockout day are capped by supply, so they say little about
     how well demand was forecast. The in-stock rows are the honest test.
 
+    Every number comes from the metrics of module 05 (``freshcast.metrics``);
+    the in-stock ones use their ``mask`` argument.
+
     Args:
-        actual: Observed sales.
-        predicted: Forecasts for the same rows.
-        in_stock: Booleans, True where the day had no stockout hour.
+        actual: Observed daily sales, one value per row (array or Series).
+        predicted: Forecasts for the same rows, in the same order.
+        in_stock: Booleans of the same length, True where the row counts as
+            in stock. The caller chooses the definition; the course uses
+            ``oos_hours == 0``, i.e. no stockout hour between 06:00 and
+            22:00.
 
     Returns:
-        ``wape``, ``mae`` and ``bias`` on all rows, then ``wape_in_stock``
-        and ``bias_in_stock`` on the in-stock rows.
+        A dict of five floats with the keys, in this order: ``wape``,
+        ``mae`` and ``bias`` on all rows, then ``wape_in_stock`` and
+        ``bias_in_stock`` on the in-stock rows. WAPE and bias are fractions
+        (0.25 means 25 %), MAE is in units of sales.
+
+    Raises:
+        ValueError: Raised by the metrics: lengths differ, a value is NaN,
+            or the actual sales of the scored rows sum to zero.
     """
     raise NotImplementedError("Zadanie 08.5")

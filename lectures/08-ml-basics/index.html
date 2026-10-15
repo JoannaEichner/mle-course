@@ -70,6 +70,16 @@
 w ← w − krok · ∂MSE/∂w
 b ← b − krok · ∂MSE/∂b</code></pre>
 
+      <p>W tych wzorach <code>X</code> to tablica cech o kształcie <code>(n, k)</code>: <code>n</code> wierszy panelu, <code>k</code> cech. <code>w</code> ma kształt <code>(k,)</code>, jedna waga na cechę. Operator <code>@</code> to iloczyn macierzowy: <code>X @ w</code> mnoży każdy wiersz <code>X</code> przez wagi, sumuje i daje jedną liczbę na wiersz, kształt <code>(n,)</code>. <code>X.T</code> to <code>X</code> obrócone (transpozycja), kształt <code>(k, n)</code>, więc <code>X.T @ r</code> daje jedną liczbę na cechę: sumę "wartość cechy razy błąd" po wszystkich wierszach.</p>
+
+<pre><code class="language-python">X = np.array([[1.0, 2.0],
+              [3.0, 4.0],
+              [5.0, 6.0]])       # 3 wiersze, 2 cechy: kształt (3, 2)
+w = np.array([10.0, 1.0])         # jedna waga na cechę: (2,)
+print(X @ w)                      # [12. 34. 56.]  jedna liczba na wiersz: (3,)
+r = np.array([1.0, 0.0, -1.0])    # jeden błąd na wiersz: (3,)
+print(X.T @ r)                    # [-4. -4.]  jedna liczba na cechę: (2,)</code></pre>
+
       <p><strong>Krok uczenia</strong> (learning rate) mówi, jak daleko idziesz w jednym kroku. Sprawdź w widżecie, co się dzieje przy małym, dobrym i za dużym kroku.</p>
 
       <figure class="widget" id="gd-widget">
@@ -128,7 +138,13 @@ print(round(w, 3), round(b, 3))</code></pre>
 
       <p>Po co osobny test? Każda decyzja podjęta na walidacji trochę się do niej dopasowuje. Po dwudziestu próbach najlepszy wynik na walidacji jest już zawyżony. Test, którego nie dotykałeś, mówi prawdę (reguła C5).</p>
 
-      <p>W szeregach czasowych podział musi iść po czasie: trening wcześniej, walidacja później, test na końcu (C3). Losowy podział wiersze miesza:</p>
+      <p>W szeregach czasowych podział musi iść po czasie: trening wcześniej, walidacja później, test na końcu (C3). Granicę podziału liczysz na datach. Różnica dwóch dat w pandas to <code>pd.Timedelta</code>, odcinek czasu. Jego atrybut <code>.days</code> to liczba dni, a dodanie albo odjęcie <code>pd.Timedelta(days=...)</code> przesuwa datę:</p>
+
+<pre><code class="language-python">first, last = pd.Timestamp("2024-04-01"), pd.Timestamp("2024-04-10")
+print((last - first).days)            # 9
+print(last - pd.Timedelta(days=2))    # 2024-04-08 00:00:00</code></pre>
+
+      <p>Losowy podział wiersze miesza:</p>
 
       <div class="predict" id="p2" data-type="single">
 <pre><code class="language-python">import pandas as pd
@@ -189,6 +205,8 @@ print(len(valid), (train["day"] > valid["day"].min()).sum())</code></pre>
 
       <p>WAPE 0.45 to dużo czy mało? Sama liczba nic nie mówi. Mówi porównanie z <strong>baseline'em</strong>: najprostszą rozsądną prognozą, na tych samych wierszach (C6). Dla dziennej sprzedaży to prognoza naiwna sezonowa: "tak samo jak tydzień temu". Model, który jej nie bije, niczego się nie nauczył. A jeśli bije ją o włos, jego złożoność i koszt utrzymania mogą się nie opłacać.</p>
 
+      <p>Żeby porównanie odbywało się na tych samych wierszach, w labie każdy model ma ten sam interfejs: <code>fit(X, y)</code> uczy się na wierszach panelu <code>X</code> i ich sprzedaży <code>y</code>, a <code>predict(X)</code> zwraca tablicę z jedną prognozą na wiersz <code>X</code>. Baseline z modułu 04 widzi jedną serię naraz (<code>fit(history)</code>, <code>predict(horizon)</code>), więc owijasz go w <strong>adapter</strong> <code>PerSeriesForecaster</code>: dla każdej serii panelu tworzy nowy model lokalny, uczy go na historii tej serii i rozkłada prognozy z powrotem na wiersze <code>X</code>. Nowy model dla każdej serii daje funkcja bez argumentów, na przykład <code>lambda: SeasonalNaiveForecaster(season=7)</code>: każde jej wywołanie zwraca świeży obiekt.</p>
+
       <p>Baseline to też test poprawności całej rury. Jeśli model wychodzi dużo gorzej od baseline'u, błąd jest raczej w danych albo w podziale niż w modelu.</p>
     </section>
 
@@ -216,7 +234,24 @@ print(len(valid), (train["day"] > valid["day"].min()).sum())</code></pre>
         </ul>
       </div>
 
-      <p>Regularyzacja ma dużo do roboty, gdy cech jest dużo w stosunku do wierszy. W labie model liniowy ma 8 cech i ponad 100 tysięcy wierszy treningu, więc <code>alpha</code> prawie niczego nie zmienia. To też wynik, który warto umieć przeczytać.</p>
+      <p>Regularyzacja ma dużo do roboty, gdy cech jest dużo w stosunku do wierszy. W labie na profilu <code>standard</code> model liniowy ma 8 cech i ponad 100 tysięcy wierszy treningu, więc <code>alpha</code> prawie niczego nie zmienia. Na profilu <code>small</code> wierszy jest około pięć razy mniej i różnice między wartościami <code>alpha</code> są większe. To też wynik, który warto umieć przeczytać.</p>
+    </section>
+
+    <section id="sklearn">
+      <h2>Pipeline w scikit-learn</h2>
+
+      <p>W labie model liniowy piszesz dwa razy: raz od zera, raz z gotowych klocków scikit-learn. Każdy klocek ma <code>fit</code>, który uczy się na danych, a model ma też <code>predict</code>. <code>StandardScaler</code> w <code>fit</code> zapamiętuje średnią i odchylenie każdej kolumny, a potem każdą kolumnę standaryzuje. <code>Ridge(alpha=...)</code> to regresja liniowa z karą z poprzedniej sekcji. <code>make_pipeline</code> łączy je w jeden obiekt <code>Pipeline</code>:</p>
+
+<pre><code class="language-python">from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+model = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+model.fit(X_train, y_train)          # skaler liczy średnie i odchylenia z X_train, Ridge uczy wagi
+forecast = model.predict(X_valid)    # X_valid skalowany statystykami z treningu; wynik: tablica NumPy
+model.named_steps["ridge"].coef_     # wagi, po jednej na kolumnę</code></pre>
+
+      <p><code>X_train</code> może być ramką pandas z samymi kolumnami cech. Skaler dopasowuje się tylko w <code>fit</code>, więc nigdy nie widzi walidacji (C4). <code>Ridge</code> nie przyjmie <code>NaN</code> i zgłosi błąd: brakujące wartości obsługujesz wcześniej, świadomie.</p>
     </section>
 
     <section id="cwiczenie">
