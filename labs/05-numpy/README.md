@@ -22,6 +22,8 @@ Zadania w kolejności notebooka. Kroki z literą (05.6a, 05.6b) to części jedn
 | 05.5 | `tests/test_metrics.py` | razem co najmniej 6 testów (z gotowym), które wykrywają 7 zepsutych metryk | `uv run course check 05.5` |
 | 05.8 | notebook | trzy pytania, odpowiedź słowami | bez sprawdzenia |
 
+Tabela to tylko spis. Pełny opis każdego zadania (cel, wejście, wynik, kroki, sprawdzenie) jest w notebooku pod nagłówkiem zadania, a dokładna umowa funkcji z pakietu w jej docstringu. Lista siedmiu zepsutych metryk z 05.5 i trzy pytania 05.8 też są w notebooku.
+
 W zadaniach z notebooka do `check` przekazujesz samą funkcję, bez nawiasów. `uv run course check` w terminalu pokazuje je jako nierozpoczęte z dopiskiem "sprawdzasz w notebooku". Tak ma być.
 
 ## Co wykorzystasz z poprzednich labów
