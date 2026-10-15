@@ -33,12 +33,10 @@ def prepare(
         leaves out, in their original order.
 
     Raises:
-        ValueError: ``actual`` and ``predicted`` differ in the number of
-            elements, the mask has a different number of elements, nothing
-            is left after masking, or a kept value is NaN. Sizes are compared
-            after flattening, so a (2, 3) and a (3, 2) input are not told
-            apart: the caller keeps the layouts equal. A NaN in an element
-            the mask leaves out is not an error.
+        ValueError: ``actual`` and ``predicted`` differ in shape (a (2, 3)
+            and a (3, 2) input are an error too), the mask has a different
+            shape, nothing is left after masking, or a kept value is NaN. A
+            NaN in an element the mask leaves out is not an error.
     """
     raise NotImplementedError("Zadanie 05.1")
 
