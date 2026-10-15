@@ -126,8 +126,9 @@ class LinearForecaster(PanelForecaster):
 
         Raises:
             ValueError: A feature column holds NaN in at least one row. The
-                message gives the number of such rows. Nothing is dropped or
-                filled: removing incomplete rows is the caller's job.
+                message gives the number of such rows. ``X`` is not modified,
+                no row is dropped and nothing is filled: removing incomplete
+                rows is the caller's job.
         """
         raise NotImplementedError("Zadanie 08.4")
 
@@ -144,6 +145,10 @@ class LinearForecaster(PanelForecaster):
 
         Raises:
             ValueError: A feature column holds NaN.
+
+        Note:
+            ``coefficients`` reads the step named ``"ridge"``, the name that
+            ``make_pipeline`` gives a ``Ridge`` step.
         """
         raise NotImplementedError("Zadanie 08.4")
 
