@@ -82,7 +82,7 @@ DAILY_COLUMNS = [*PRODUCT_KEY, *MEASURE_COLUMNS]
 def read_sheets(path: Path) -> pd.DataFrame:
     """Read every sheet of the workbook into one typed table.
 
-    Reading the workbook is slow (about half a minute for 1,067,371 rows,
+    Reading the workbook is slow (up to about 90 seconds for 1,067,371 rows,
     525,461 in the first sheet and 541,910 in the second) and reading the
     parquet cache written from it takes a few hundredths of a second, so
     this function is meant to run once (see ``build_cache``).

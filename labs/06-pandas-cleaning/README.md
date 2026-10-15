@@ -40,7 +40,7 @@ Z kodu tego labu: stałe na górze `online_retail.py` (`SHEET_HEADERS`, `RAW_COL
 
 ## Zanim zaczniesz
 
-- Skoroszyt jest pobrany (`uv run course data`). Pierwsze wczytanie trwa od pół minuty do półtorej minuty, zależnie od komputera. Potem pracujesz na cache w Parquet.
+- Skoroszyt jest pobrany (`uv run course data`). Pierwsze wczytanie trwa do około półtorej minuty. Potem pracujesz na cache w Parquet.
 - Moduł 05 za Tobą, albo `uv run course catchup 06`.
 - Przeczytałeś wykład 06.
 
