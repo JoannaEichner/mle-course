@@ -15,6 +15,9 @@ return line):
     units_returned  int64     units on cancellation lines, as a positive number
     revenue         float64   sum of quantity * price over sale lines, in pounds
 
+``check_daily`` accepts any integer and any float width for the measures; the
+table built here has exactly the types above.
+
 The table is sparse: a missing product-day means no line was booked, not that
 demand was zero. 604 of the 739 calendar days from 2009-12-01 to 2011-12-09
 have at least one line. The shop books nothing on Saturdays (one exception,
