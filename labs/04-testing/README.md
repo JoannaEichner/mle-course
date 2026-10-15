@@ -23,7 +23,7 @@ Sprawdzenie 04.2 wymaga co najmniej 6 testów w pliku, licząc gotowy (przypadek
 
 ## Co wykorzystasz z poprzednich labów
 
-- `labs/03-classes/demand.py`, zadania 03.3 i 03.4: `LocalForecaster`, `NaiveForecaster`, `SeasonalNaiveForecaster`, `MovingAverageForecaster`. Ciała metod przenosisz do `local.py`. Zmieniają się tylko domyślne `season` i `window` (7) i typ wyniku (zawsze `float`).
+- `labs/03-classes/demand.py`, zadania 03.3 i 03.4: `LocalForecaster`, `NaiveForecaster`, `SeasonalNaiveForecaster`, `MovingAverageForecaster`. Ciała metod przenosisz do `local.py` bez zmian. Sprawdzenie 04.1 bada wprost dwie rzeczy z tej samej umowy: domyślne `season` i `window` równe 7 oraz wynik zawsze typu `float`, także dla historii z liczb całkowitych.
 - Wzór testu z wykładu 04 i gotowy `test_naive_repeats_the_last_value` w `tests/models/test_local.py`.
 - Z labu 02: `uv run ruff format`, `uv run ruff check`, `uv run mypy` przed punktem kontrolnym.
 
