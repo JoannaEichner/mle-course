@@ -44,7 +44,9 @@ def build_product_dim(df: pd.DataFrame) -> pd.DataFrame:
 
     Raises:
         ValueError: A product appears under more than one hierarchy path. The
-            message gives the number of such products.
+            number in the message counts the extra paths: repeats of
+            ``product_id`` among the distinct paths, so a product with two
+            paths counts 1 and one with three paths counts 2.
     """
     raise NotImplementedError("Zadanie 07.3")
 
