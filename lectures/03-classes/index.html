@@ -257,6 +257,21 @@ def evaluate(make_model: Callable[[], Forecaster], ...) -> float: ...</code></pr
           <li><code>Any</code>.<span class="why">Zadziała, ale <code>mypy</code> przestanie cokolwiek sprawdzać, także literówkę w <code>predcit</code>.</span></li>
         </ul>
       </div>
+
+      <h3>Jak ocenić prognozę: holdout i MAE</h3>
+
+      <p>Model, który widział całą serię, łatwo "przewiduje" przeszłość. Uczciwa ocena chowa przed nim ostatnie miesiące. Ten schowany kawałek to <strong>holdout</strong> (okres testowy). Model uczy się na miesiącach przed nim, prognozuje schowane, a Ty porównujesz prognozę z tym, co sprzedano naprawdę.</p>
+
+      <p>Najprostsza miara pomyłki to <strong>MAE</strong> (mean absolute error, średni błąd bezwzględny): dla każdego miesiąca różnica między sprzedażą a prognozą bez znaku, potem średnia. Wynik jest w tych samych jednostkach co dane, tu w sztukach. Przykład z holdoutem 2:</p>
+
+<pre><code class="language-text">seria:      1  1  3  5
+historia:   1  1          (model uczy się na tym)
+prawda:           3  5    (ostatnie 2 miesiące, schowane)
+prognoza:         1  1    (naiwna: powtarza ostatnią wartość historii)
+błędy:            2  4
+MAE:        (2 + 4) / 2 = 3.0</code></pre>
+
+      <p>Dla wielu serii liczysz MAE osobno dla każdej, a potem średnią z tych liczb. W labie robi to funkcja <code>evaluate</code>.</p>
     </section>
 
     <section id="enum-match">
