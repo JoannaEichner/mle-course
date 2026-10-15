@@ -130,6 +130,14 @@ df["dt"] = pd.to_datetime(df["dt"], format="%Y-%m-%d")             # tekst -> da
 
       <p>Zamiana tekstu na datę daje mniej pamięci, ale przede wszystkim daje arytmetykę: odejmowanie dat, dzień tygodnia przez <code>.dt.dayofweek</code>, poprawne sortowanie.</p>
 
+      <p>W labie zmniejszysz typy wszystkich kolumn całkowitych naraz, bez wypisywania ich nazw. Dwa narzędzia, których jeszcze nie było:</p>
+
+<pre><code class="language-python">df.select_dtypes("integer").columns          # nazwy kolumn całkowitych
+column = "dt"
+df = df.assign(**{column: pd.to_datetime(df[column])})   # assign, gdy nazwa kolumny jest w zmiennej</code></pre>
+
+      <p><code>select_dtypes</code> wybiera kolumny po typie. <code>assign(nazwa=wartości)</code> znasz z modułu 06, ale tam nazwa kolumny była wpisana w kod. Gdy siedzi w zmiennej albo w stałej (<code>DATE</code>), budujesz słownik <code>{nazwa: wartości}</code>, a <code>**</code> rozpakowuje go na argumenty. Ten sam zapis przyjmuje słownik z wieloma kolumnami naraz.</p>
+
       <div class="quiz" id="q2" data-type="single">
         <div class="quiz-q">Potrzebujesz sprzedaży jednego miasta. Który wariant zużyje najmniej pamięci w szczycie?</div>
         <ul class="quiz-options">
@@ -200,6 +208,11 @@ if duplicated:
           <li>Zostawić 0 jako liczbę.<span class="why">Model liniowy potraktuje je jako rabat dwa razy głębszy niż 0.5 i dopasuje do tych wierszy całą zależność sprzedaży od ceny.</span></li>
         </ul>
       </div>
+
+      <p>Zamiana wybranych wartości na NaN to <code>Series.mask</code>. Tam, gdzie warunek jest True, wynik ma NaN. Pozostałe wartości przechodzą bez zmian. Oryginał zostaje nietknięty.</p>
+
+<pre><code class="language-python">s = pd.Series([0.9, 0.0, 1.0])
+s.mask(s == 0)        # 0.9, NaN, 1.0</code></pre>
     </section>
 
     <section id="merge">
@@ -331,6 +344,12 @@ df["relative_sales"] = df["sale_amount"] / series_mean</code></pre>
           <li><code>df["sale_amount"].sum()</code><span class="why">To jedna liczba dla całej ramki, bez podziału na sklepy.</span></li>
         </ul>
       </div>
+
+      <p>Dwie metody przydadzą się w labie przy odczytywaniu wyników <code>groupby</code>:</p>
+      <ul>
+        <li><code>value_counts()</code> liczy, ile razy występuje każda wartość. Na wyniku <code>df.groupby(key).size()</code> mówi, ile serii ma ile wierszy.</li>
+        <li><code>idxmax()</code> zwraca etykietę indeksu przy największej wartości. Na średniej sprzedaży po kategorii to identyfikator kategorii, a nie sama średnia.</li>
+      </ul>
     </section>
 
     <section id="czas">
@@ -382,6 +401,8 @@ df["sales_mean_7"] = (
         <span class="label">Reguła</span>
         <p>Okno kończy się najpóźniej wczoraj. Lagi i okna liczysz wewnątrz serii, na panelu posortowanym i kompletnym.</p>
       </div>
+
+      <p>Czy taka cecha coś mówi o sprzedaży? Pierwsza miara to <strong>korelacja</strong>: liczba od -1 do 1, która mówi, na ile dwie kolumny rosną i maleją razem. 1 to idealny związek liniowy, 0 to brak takiego związku. W pandas: <code>df["sale_amount"].corr(df["sales_lag_7"])</code>. Wiersze z NaN w którejkolwiek z dwóch kolumn są pomijane, więc pierwsze dni serii nie psują wyniku.</p>
 
       <div class="quiz" id="q8" data-type="single">
         <div class="quiz-q">
