@@ -290,7 +290,7 @@ with path.open(encoding="utf-8") as handle:
         <li>Zawsze podajesz <code>encoding="utf-8"</code>. Domyślne kodowanie zależy od systemu, a polskie znaki i symbole walut rozjeżdżają się pierwsze.</li>
       </ul>
 
-      <p><code>with</code> działa z każdym obiektem, który umie się "otworzyć" i "zamknąć": plikiem, połączeniem z bazą, blokadą. Takie obiekty nazywa się <strong>context managerami</strong>. Własny napiszesz w module 02.</p>
+      <p><code>with</code> działa z każdym obiektem, który umie się "otworzyć" i "zamknąć": plikiem, połączeniem z bazą, blokadą. Takie obiekty nazywa się <strong>context managerami</strong>.</p>
 
       <h3 id="zapis-json">Zapis do pliku JSON</h3>
       <p><strong>JSON</strong> to tekstowy format danych, który czyta człowiek i prawie każdy program. Słownik z napisami, liczbami, <code>None</code> i listami zamieniasz na tekst JSON funkcją <code>json.dumps</code> z modułu <code>json</code>. <code>indent=2</code> układa wynik w wiersze z wcięciem, <code>sort_keys=True</code> sortuje klucze słowników.</p>

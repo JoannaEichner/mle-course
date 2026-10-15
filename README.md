@@ -56,7 +56,7 @@ Kod referencyjny jest na gałęzi `solutions`. Pobierzesz ją przez `git fetch u
 
 ## Stan
 
-Wszystkie 20 modułów, od lekcji 00 do capstone (moduł 19), ma wykład i lab. Teksty instrukcji przechodzą jeszcze przegląd, więc mogą się zmieniać. Plan modułów jest na [mapie kursu](lectures/index.html).
+Kurs jest w budowie. Gotowe: lekcja 00, moduł 07 i fragment wykładu 01. Plan wszystkich 20 modułów jest na [mapie kursu](lectures/index.html).
 
 ## Licencja
 
