@@ -43,12 +43,14 @@ def add_flags(raw: pd.DataFrame) -> pd.DataFrame:
       found stock, manual corrections. Neither kind is a sale.
 
     Args:
-        raw: The typed raw table with tidy stock codes (``read_sheets``).
+        raw: The typed raw table with tidy stock codes, as returned by
+            ``load_raw``: one row per invoice line. The flags read
+            ``invoice``, ``stock_code``, ``customer_id`` and ``price``.
 
     Returns:
         A new frame with the columns of ``raw`` plus the four flags of
-        ``FLAG_COLUMNS`` as ``bool`` columns, same rows, same order, same
-        index.
+        ``FLAG_COLUMNS``, in that order, as ``bool`` columns; same rows,
+        same order, same index. ``raw`` is not changed.
     """
     raise NotImplementedError("Zadanie 06.3")
 
@@ -64,13 +66,16 @@ def drop_sheet_overlap(raw: pd.DataFrame) -> pd.DataFrame:
     ``flag_repeat_lines``.
 
     Args:
-        raw: The typed raw table with a ``sheet`` column.
+        raw: The typed raw table with a ``sheet`` column, with or without
+            the flags of ``add_flags``. Reads ``invoice``, ``sheet`` and
+            ``quantity``; other columns are carried along.
 
     Returns:
         A new frame without the lines of the later copies, in the original
         order, with a fresh 0..n-1 index. For an invoice that occurs in
         several sheets the copy from the first sheet in name order is kept.
-        A frame without such invoices comes back with all its rows.
+        A frame without such invoices comes back with all its rows. The
+        columns are those of ``raw``; ``raw`` is not changed.
 
     Raises:
         ValueError: Copies of an invoice differ in the number of lines or in
@@ -111,12 +116,14 @@ def flag_repeat_lines(raw: pd.DataFrame) -> pd.DataFrame:
     these 11,812, which are not certainly anything.
 
     Args:
-        raw: A typed raw table.
+        raw: A typed raw table, with or without flags and the ``sheet``
+            column. Only ``LINE_COLUMNS`` are compared.
 
     Returns:
         A new frame with the columns of ``raw`` plus a ``bool`` column
-        ``is_repeat_line``, True for every occurrence after the first, same
-        rows, same order, same index.
+        ``is_repeat_line`` (``REPEAT_FLAG``), True for every occurrence after
+        the first and False for the first one; same rows, same order, same
+        index. ``raw`` is not changed.
     """
     raise NotImplementedError("Zadanie 06.4")
 
@@ -144,7 +151,10 @@ def product_lines(flagged: pd.DataFrame) -> pd.DataFrame:
     daily table needs the customer.
 
     Args:
-        flagged: Output of ``add_flags``, after ``drop_sheet_overlap``.
+        flagged: Output of ``add_flags``, after ``drop_sheet_overlap``. Reads
+            ``stock_code``, ``invoice_date``, ``quantity``, ``price`` and the
+            flags ``is_cancellation``, ``is_non_product`` and
+            ``is_bad_price``.
 
     Returns:
         One row per kept line, in the original order, with a fresh index and
@@ -152,7 +162,9 @@ def product_lines(flagged: pd.DataFrame) -> pd.DataFrame:
         ``units_sold``, ``units_returned`` (a positive number) and
         ``revenue`` (quantity times price for a sale line, in pounds). A sale
         line has ``units_returned`` 0, a return line has ``units_sold`` 0 and
-        ``revenue`` 0.0.
+        ``revenue`` 0.0. The unit columns are integers, ``revenue`` a float,
+        ``date`` a datetime. When every line is dropped, the result has these
+        columns and no rows. ``flagged`` is not changed.
 
     Raises:
         ValueError: A kept sale line has a quantity of 0 or less, or a kept

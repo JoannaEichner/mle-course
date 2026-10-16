@@ -8,12 +8,26 @@ import pandas as pd
 def last_days_start(df: pd.DataFrame, days: int) -> pd.Timestamp:
     """Return the first date of the final ``days`` days of the frame.
 
+    The span of the frame is counted in calendar days from its earliest to
+    its latest date, both included. Rows may come in any order and a date
+    may repeat (one row per series per day); only the earliest and the
+    latest date matter. Example: for data from 2024-04-01 to 2024-04-10
+    and ``days=3`` the result is 2024-04-08, so 04-08, 04-09 and 04-10 are
+    the final three days.
+
     Args:
-        df: A frame with the date column.
-        days: Length of the final period, at least 1.
+        df: A frame with the date column ``DATE`` (``"dt"``, dtype
+            ``datetime64``), for example the processed panel of module 07.
+            Other columns are ignored.
+        days: Length of the final period in days, at least 1.
+
+    Returns:
+        The first day of the final period, as a ``pd.Timestamp``. It is a
+        valid ``cutoff`` for ``split_by_date``.
 
     Raises:
-        ValueError: ``days`` is below 1 or not shorter than the frame's span.
+        ValueError: ``days`` is below 1 or not shorter than the frame's span,
+            so nothing would be left before the final period.
     """
     raise NotImplementedError("Zadanie 08.1")
 
@@ -27,15 +41,22 @@ def split_by_date(
     everything it is validated on.
 
     Args:
-        df: A frame with the date column.
-        cutoff: First date of the second part.
+        df: A frame with the date column ``DATE`` (``"dt"``, dtype
+            ``datetime64``). All columns are kept in both parts.
+        cutoff: First date of the second part, e.g. the result of
+            ``last_days_start``.
 
     Returns:
-        ``(before, after)``. Both keep the index of ``df``, so predictions
-        made for one part can be aligned with the original frame.
+        ``(before, after)``: the rows with a date earlier than ``cutoff``,
+        and the rows with ``cutoff`` or a later date. Together they hold
+        every row of ``df`` exactly once. Both keep the columns, the row
+        order and the index of ``df`` (no reset), so predictions made for
+        one part can be aligned with the original frame. ``df`` is not
+        modified.
 
     Raises:
-        ValueError: One of the parts would be empty.
+        ValueError: One of the parts would be empty, i.e. ``cutoff`` is on
+            or before the first date or after the last date.
     """
     raise NotImplementedError("Zadanie 08.1")
 

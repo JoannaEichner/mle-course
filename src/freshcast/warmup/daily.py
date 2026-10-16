@@ -13,7 +13,9 @@ def daily_totals(lines: pd.DataFrame) -> pd.DataFrame:
     """Sum product lines to one row per product and day.
 
     Args:
-        lines: Output of ``product_lines``.
+        lines: Output of ``product_lines``: one row per kept invoice line,
+            with the columns of ``DAILY_COLUMNS``, possibly several rows for
+            the same product and day, in any order and with any index.
 
     Returns:
         A frame with exactly the columns of ``DAILY_COLUMNS``, one row per
@@ -25,7 +27,7 @@ def daily_totals(lines: pd.DataFrame) -> pd.DataFrame:
         demand (see the note on trading days in ``online_retail``). A line
         with a missing ``stock_code`` or ``date`` is not dropped: it forms a
         row of its own, with the key missing, so that ``check_daily`` can
-        reject it.
+        reject it. ``lines`` is not changed.
     """
     raise NotImplementedError("Zadanie 06.6")
 
@@ -93,17 +95,33 @@ def build_daily(cache: Path) -> pd.DataFrame:
 def save_daily(daily: pd.DataFrame, path: Path) -> Path:
     """Write the daily table to ``path`` and return the path.
 
-    Missing parent directories are created and an existing file is
-    overwritten.
+    The contract is checked before writing, so a table that breaks it never
+    reaches the disk. Missing parent directories are created and an existing
+    file is overwritten. The index is not stored.
+
+    Args:
+        daily: The daily table, for example the result of ``build_daily``.
+        path: The parquet file to write.
+
+    Returns:
+        ``path``.
 
     Raises:
-        ValueError: The table breaks the contract (see ``check_daily``).
+        ValueError: The table breaks the contract (see ``check_daily``);
+            nothing is written.
     """
     raise NotImplementedError("Zadanie 06.7")
 
 
 def load_daily(path: Path) -> pd.DataFrame:
     """Read the daily table written by ``save_daily``.
+
+    Args:
+        path: The parquet file written by ``save_daily``.
+
+    Returns:
+        The table, equal to the one that was saved (same columns, types,
+        order and a 0..n-1 index), checked against the contract.
 
     Raises:
         FileNotFoundError: The dataset has not been built yet.

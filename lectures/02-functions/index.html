@@ -205,6 +205,29 @@ print(greet(), greet.__name__)</code></pre>
         </ul>
       </div>
 
+      <h3>Kod, który działa zawsze</h3>
+      <p>Dekorator, który coś mierzy albo zapisuje, często musi zrobić to także wtedy, gdy opakowana funkcja zgłosi wyjątek. Do tego służy <code>finally</code>: blok pod nim wykonuje się po <code>try</code> zawsze, czy <code>try</code> skończył się wynikiem, czy wyjątkiem. <code>finally</code> niczego nie łapie, więc wyjątek leci dalej, do wywołującego.</p>
+
+      <div class="predict" id="p8" data-type="single">
+<pre><code class="language-python">def load():
+    try:
+        return int("x")
+    finally:
+        print("sprzątam")
+
+try:
+    load()
+except ValueError:
+    print("błąd dotarł")</code></pre>
+        <ul class="quiz-options">
+          <li data-correct><code>sprzątam</code>, <code>błąd dotarł</code><span class="why">Tak. <code>int("x")</code> zgłasza <code>ValueError</code>, <code>finally</code> wykonuje się mimo to, a wyjątek idzie dalej do <code>except</code> na zewnątrz.</span></li>
+          <li><code>błąd dotarł</code><span class="why">To byłoby prawdą, gdyby <code>finally</code> działało tylko po udanym <code>try</code>. Działa zawsze.</span></li>
+          <li><code>sprzątam</code><span class="why"><code>finally</code> nie łapie wyjątku. Po jego wykonaniu wyjątek leci dalej.</span></li>
+        </ul>
+      </div>
+
+      <p>Do mierzenia, ile coś trwa, służy <code>time.perf_counter()</code>. Zwraca liczbę sekund od nieokreślonego punktu w przeszłości, więc sama wartość nic nie mówi. Znaczenie ma różnica dwóch odczytów: przed i po.</p>
+
       <h3>Dekorator z parametrem</h3>
 
       <p>Dekorator z parametrem, jak <code>@requires_history(12)</code>, to <strong>fabryka dekoratorów</strong>: funkcja, która przyjmuje parametr i zwraca dekorator. Stąd trzy poziomy zagnieżdżenia:</p>
@@ -328,6 +351,8 @@ def demand_stats(values: Values) -> Stats: ...</code></pre>
           <li>Bo brakuje adnotacji zmiennej <code>row</code>.<span class="why"><code>mypy</code> sam wie, że <code>row</code> to <code>dict[str, float | None]</code>, z typu <code>stats</code>.</span></li>
         </ul>
       </div>
+
+      <p>Zapis <code>(value := row[key])</code> to <strong>wyrażenie przypisania</strong> (walrus operator, od kształtu <code>:=</code>). Przypisuje wynik do nazwy <code>value</code> i od razu zwraca ten wynik, więc da się go użyć wewnątrz warunku comprehension. Zwykłe <code>=</code> tam nie zadziała. Dalej w tej samej comprehension używasz <code>value</code>, a <code>mypy</code> wie, że to już nie <code>None</code>.</p>
 
       <h3>Typ dekoratora</h3>
 
