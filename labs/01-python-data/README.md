@@ -20,7 +20,7 @@ Sześć funkcji w komórkach notebooka, kilka zmiennych z odpowiedziami i plik `
 | 01.6 | funkcja `save_summary` | statystyki, ścieżka → zapisany plik JSON, jego ścieżka | `check("01.6", save_summary)` |
 | 01.7 | zmienne `regular`, `intermittent`, dwie odpowiedzi tekstem | listy nazw serii | bez sprawdzenia |
 
-`uv run course check` pokaże zadania 01 jako nierozpoczęte z dopiskiem "sprawdzasz w notebooku". Tak ma być: te funkcje żyją w komórkach, więc sprawdza je tylko notebook.
+`uv run course check` pokaże zadania 01 jako nierozpoczęte z dopiskiem "sprawdzasz w notebooku". Tak ma być. Te funkcje żyją w komórkach, więc sprawdza je tylko notebook.
 
 ## Co wykorzystasz z poprzednich labów
 

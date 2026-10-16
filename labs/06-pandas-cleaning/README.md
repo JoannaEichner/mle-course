@@ -36,7 +36,13 @@ Wynik: `data/processed/online_retail_daily.parquet`. Wróci w module 17.
 - **Lab 01:** `pathlib.Path`, `mkdir(parents=True, exist_ok=True)`, wyjątki `ValueError` i `FileNotFoundError`.
 - **Moduł 00:** `uv run course data` (skoroszyt Online Retail II) i `uv run course check`.
 
-Z kodu tego labu: stałe na górze `online_retail.py` (`SHEET_HEADERS`, `RAW_COLUMNS`, `REQUIRED_COLUMNS`, `INVOICE_PATTERN`, `PRODUCT_CODE_PATTERN`, `FLAG_COLUMNS`, `REPEAT_FLAG`, `PRODUCT_KEY`, `MEASURE_COLUMNS`, `DAILY_COLUMNS`), `LINE_COLUMNS` w `lines.py` i funkcja pomocnicza `_wrong_dtypes` w `daily.py` są gotowe. Każda funkcja korzysta z wyniku poprzedniej: `build_daily` w 06.7a składa je wszystkie.
+Z kodu tego labu gotowe są:
+
+- stałe na górze `online_retail.py`: `SHEET_HEADERS`, `RAW_COLUMNS`, `REQUIRED_COLUMNS`, `INVOICE_PATTERN`, `PRODUCT_CODE_PATTERN`, `FLAG_COLUMNS`, `REPEAT_FLAG`, `PRODUCT_KEY`, `MEASURE_COLUMNS`, `DAILY_COLUMNS`,
+- `LINE_COLUMNS` w `lines.py`,
+- funkcja pomocnicza `_wrong_dtypes` w `daily.py`.
+
+Każda funkcja korzysta z wyniku poprzedniej. `build_daily` w 06.7a składa je wszystkie.
 
 ## Zanim zaczniesz
 
@@ -47,6 +53,6 @@ Z kodu tego labu: stałe na górze `online_retail.py` (`SHEET_HEADERS`, `RAW_COL
 ## Gdy utkniesz
 
 1. Policz: ile wierszy dotyczy reguła, flaga albo filtr, który piszesz? Porównaj z liczbą w docstringu.
-2. Przeczytaj komunikat sprawdzenia: sprawdzenia pracują na małej próbce prawdziwego pliku.
+2. Przeczytaj komunikat sprawdzenia. Sprawdzenia pracują na małej próbce prawdziwego pliku.
 3. Otwórz kolejną podpowiedź pod zadaniem.
 4. Zapytaj tutora: `/hint 06.4`.

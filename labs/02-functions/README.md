@@ -29,16 +29,16 @@ Z labu 01 (`labs/01-python-data/01-python-data.ipynb`) bierzesz sześć funkcji.
 
 | Funkcja | Zadanie w labie 01 | Co zmieniasz w labie 02 |
 |---|---|---|
-| `parse_value` | 01.1 | typy; stałej `MISSING` nie kopiujesz, już jest w `carparts.py` |
+| `parse_value` | 01.1 | typy. Stałej `MISSING` nie kopiujesz, już jest w `carparts.py` |
 | `parse_series_line` | 01.2 | typy |
-| `read_series` | 01.3a | typy; import `Path` |
-| `demand_stats` | 01.4a | typy (alias `Values`, `Stats`); w docstringu "a sequence" zamiast "a list" |
-| `top_series` | 01.5 | typy; być może drobna zmiana ciała, żeby mypy widział, że wartość nie jest `None` |
-| `save_summary` | 01.6 | typy; import `json` i `Path` |
+| `read_series` | 01.3a | typy, import `Path` |
+| `demand_stats` | 01.4a | typy (alias `Values`, `Stats`). W docstringu "a sequence" zamiast "a list" |
+| `top_series` | 01.5 | typy. Być może drobna zmiana ciała, żeby mypy widział, że wartość nie jest `None` |
+| `save_summary` | 01.6 | typy, import `json` i `Path` |
 
 Zmiennych z notebooka labu 01 (`series`, `stats`) nie przenosisz. Notebook labu 02 buduje własne: `series` w 02.2, `stats` w 02.4d.
 
-Jeśli pominąłeś lab 01, napisz te funkcje według opisu labu 01: `course catchup` nie uzupełnia notebooków.
+Jeśli pominąłeś lab 01, napisz te funkcje według opisu labu 01. `course catchup` nie uzupełnia notebooków.
 
 ## Zanim zaczniesz
 

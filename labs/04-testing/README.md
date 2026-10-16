@@ -19,7 +19,10 @@ Notebook: `04-testing.ipynb`. Kod piszesz w pakiecie, w dwóch plikach: `src/fre
 | 04.3 | | ten sam pakiet w Poetry i w uv, odpowiedzi w notebooku | `~/sandbox`, poza repozytorium | bez sprawdzenia |
 | PK1 | | pull request z modułami 01-04 i review | gałąź `checkpoint/01` | `/review` albo samodzielnie |
 
-Sprawdzenie 04.2 wymaga co najmniej 6 testów w pliku, licząc gotowy (przypadek parametryzacji liczy się osobno), które przechodzą na Twoim kodzie. Potem uruchamia je na ośmiu wersjach `local.py`, z których każda ma jeden celowy błąd, i wypisuje te błędy, których Twoje testy nie zauważyły.
+Sprawdzenie 04.2 działa w dwóch krokach:
+
+- Wymaga co najmniej 6 testów w pliku, które przechodzą na Twoim kodzie. Gotowy test się liczy, a każdy przypadek parametryzacji liczy się osobno.
+- Uruchamia te testy na ośmiu wersjach `local.py`, z których każda ma jeden celowy błąd. Wypisuje te błędy, których Twoje testy nie zauważyły.
 
 ## Co wykorzystasz z poprzednich labów
 

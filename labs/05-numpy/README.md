@@ -6,7 +6,7 @@ Notebook: `05-numpy.ipynb`. Część kodu piszesz w notebooku, część w pakiec
 
 ## Co oddajesz
 
-Zadania w kolejności notebooka. Kroki z literą (05.6a, 05.6b) to części jednego zadania: pierwszy krok to funkcja, drugi jej użycie na prawdziwych danych. Kroki "b" nie mają osobnego `check`: sprawdza je komórka z asercjami pod nimi.
+Zadania w kolejności notebooka. Kroki z literą (05.6a, 05.6b) to części jednego zadania: pierwszy krok to funkcja, drugi jej użycie na prawdziwych danych. Kroki "b" nie mają osobnego `check`. Sprawdza je komórka z asercjami pod nimi.
 
 | Zadanie | Gdzie | Co | Sprawdzenie |
 |---|---|---|---|
@@ -28,8 +28,8 @@ W zadaniach z notebooka do `check` przekazujesz samą funkcję, bez nawiasów. `
 
 ## Co wykorzystasz z poprzednich labów
 
-- **Lab 04:** klasę `SeasonalNaiveForecaster` z `src/freshcast/models/local.py` (`from freshcast.models.local import SeasonalNaiveForecaster`). Notebook porównuje z nią Twoją `seasonal_naive` w 05.7, więc musi działać. Z labu 04 bierzesz też sposób pisania testów: `pytest.approx`, `pytest.raises(ValueError, match=...)`, `@pytest.mark.parametrize`, i mechanizm sprawdzenia testów zepsutym kodem (04.2).
-- **Lab 02:** adnotacje typów i docstringi. Funkcje w `metrics.py` i `numeric.py` mają je gotowe, czytasz je jak umowę.
+- **Lab 04:** klasę `SeasonalNaiveForecaster` z `src/freshcast/models/local.py` (`from freshcast.models.local import SeasonalNaiveForecaster`). Notebook porównuje z nią Twoją `seasonal_naive` w 05.7, więc ta klasa musi działać. Z labu 04 bierzesz też sposób pisania testów, czyli `pytest.approx`, `pytest.raises(ValueError, match=...)` i `@pytest.mark.parametrize`. Bierzesz też mechanizm sprawdzenia testów zepsutym kodem (04.2).
+- **Lab 02:** adnotacje typów i docstringi. Funkcje w `metrics.py` i `numeric.py` mają gotowe adnotacje i docstringi. Czytasz je jak umowę.
 - **Moduł 00:** `uv run course data` (dane FreshRetailNet) i `uv run course check`.
 
 Z notebooka tego labu: tablice `ids`, `day`, `dates`, `sale`, `stockout_hours`, `hours` z sekcji "Dane jako tablice" są gotowe. Opis każdej jest w tabeli pod komórką, która je tworzy.

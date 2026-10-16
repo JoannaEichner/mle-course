@@ -2,7 +2,7 @@
 
 Wykład: [`lectures/03-classes/index.html`](../../lectures/03-classes/index.html)
 
-Notebook: `03-classes.ipynb`. Kod piszesz w `demand.py` obok notebooka. Komentarze w `demand.py` (po angielsku) to umowa każdego bloku, notebook opisuje to samo po polsku, krok po kroku.
+Notebook: `03-classes.ipynb`. Kod piszesz w `demand.py` obok notebooka. Komentarze w `demand.py` (po angielsku) to umowa każdego bloku. Notebook opisuje to samo po polsku, krok po kroku.
 
 ## Co oddajesz
 
@@ -31,8 +31,8 @@ Plik `demand.py`, który przechodzi `ruff format --check`, `ruff check` i `mypy 
 
 ## Co wykorzystasz z poprzednich labów
 
-- Wzór na **ADI** z labu 01 (`demand_stats`): znane miesiące podzielone przez miesiące ze sprzedażą większą od zera.
-- Wzór na **CV²** z labu 02 (`cv2` w `carparts.py`): wariancja populacyjna niezerowych wartości przez kwadrat ich średniej. W tym labie bez wymogu 12 znanych miesięcy.
+- Wzór na ADI z labu 01 (`demand_stats`). ADI to liczba znanych miesięcy podzielona przez liczbę miesięcy ze sprzedażą większą od zera.
+- Wzór na CV² z labu 02 (`cv2` w `carparts.py`). CV² to wariancja populacyjna niezerowych wartości podzielona przez kwadrat ich średniej. W tym labie liczysz CV² bez wymogu 12 znanych miesięcy.
 - Format rekordu `(nazwa, "YYYY-MM-DD", wartości)` z `read_series` z labów 01 i 02. W `demand.py` robi to gotowa funkcja `read_tsf`, więc `carparts.py` nie jest potrzebny do uruchomienia labu.
 - `lambda` i typ `Callable` z wykładu 02, przydatne w 03.5.
 - Narzędzia z labu 02: `uv run ruff format`, `uv run ruff check`, `uv run mypy --strict`.

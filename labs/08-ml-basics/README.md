@@ -26,9 +26,15 @@ Notebook: `08-ml-basics.ipynb`. Zadania 08.1-08.5 piszesz w pakiecie `src/freshc
 | 08.7 Walidacja, potem test | 08.7a | notebook: `by_alpha`, `best_alpha` | `assert` pod komórką |
 | | 08.7b | notebook: `results` | `assert` pod komórką |
 
-Importy, które dopisujesz na górze plików (w Twojej wersji plików ich nie ma): `split.py`: `from freshcast.data.schema import DATE`; `models/panel.py`: `from freshcast.data.schema import DATE, SERIES_KEY`, `from sklearn.linear_model import Ridge`, `from sklearn.preprocessing import StandardScaler` i `make_pipeline` dopisane do linii `from sklearn.pipeline import Pipeline`; `evaluation/scores.py`: `from freshcast import metrics`. `gradient.py` ma już `numpy`.
+Na górze trzech plików dopisujesz importy. W Twojej wersji plików ich nie ma:
 
-Całość z pakietu: `uv run course check 08`. Zadania 08.6 i 08.7 nie mają `check`: sprawdzają je komórki z `assert` w notebooku.
+- `split.py`: `from freshcast.data.schema import DATE`,
+- `models/panel.py`: `from freshcast.data.schema import DATE, SERIES_KEY`, `from sklearn.linear_model import Ridge`, `from sklearn.preprocessing import StandardScaler` i `make_pipeline` dopisane do linii `from sklearn.pipeline import Pipeline`,
+- `evaluation/scores.py`: `from freshcast import metrics`.
+
+`gradient.py` ma już `numpy`.
+
+Całość z pakietu: `uv run course check 08`. Zadania 08.6 i 08.7 nie mają `check`. Sprawdzają je komórki z `assert` w notebooku.
 
 Notebook kończy się tabelą: baseline kontra Ridge na teście, na wszystkich dniach i na dniach bez braków towaru.
 
@@ -36,11 +42,11 @@ Notebook kończy się tabelą: baseline kontra Ridge na teście, na wszystkich d
 
 | Co | Skąd | Jak to dostajesz | Gdzie w labie 08 |
 |---|---|---|---|
-| `data/processed/daily.parquet`: jeden wiersz to sprzedaż jednego produktu w jednym sklepie jednego dnia | zadanie 07.6 (budowa: 07.6a, zapis: 07.6b, odczyt: 07.6c) | `from freshcast.data.prepare import load_processed`, potem `load_processed(paths.PROCESSED_DIR)`; pierwsza komórka z danymi robi to za Ciebie i buduje plik, jeśli go nie ma | zmienna `daily`, z niej `panel` |
+| `data/processed/daily.parquet`: jeden wiersz to sprzedaż jednego produktu w jednym sklepie jednego dnia | zadanie 07.6 (budowa: 07.6a, zapis: 07.6b, odczyt: 07.6c) | `from freshcast.data.prepare import load_processed`, potem `load_processed(paths.PROCESSED_DIR)`. Pierwsza komórka z danymi robi to za Ciebie i buduje plik, jeśli go nie ma | zmienna `daily`, z niej `panel` |
 | `add_lag`, `add_rolling_mean` | kroki 07.5b i 07.5c | `from freshcast.data.panel import add_lag, add_rolling_mean` (pierwsza komórka) | komórka z `FEATURES` buduje nimi cztery cechy w `panel` |
-| nazwy kolumn `DATE`, `TARGET`, `SERIES_KEY`, `OOS_HOURS`, `OUTCOME_COLUMNS` | plik dany `src/freshcast/data/schema.py`, kontrakt z modułu 07 | `from freshcast.data.schema import ...` | wszędzie; `SERIES_KEY` i `DATE` w 08.2, `OUTCOME_COLUMNS` w 08.6 |
+| nazwy kolumn `DATE`, `TARGET`, `SERIES_KEY`, `OOS_HOURS`, `OUTCOME_COLUMNS` | plik dany `src/freshcast/data/schema.py`, kontrakt z modułu 07 | `from freshcast.data.schema import ...` | wszędzie. `SERIES_KEY` i `DATE` w 08.2, `OUTCOME_COLUMNS` w 08.6 |
 | kolumny `discount`, `discount_is_zero`, `oos_hours` | kroki 07.2d (`clean_discount`) i 07.4c (`summarise_hours`), zapisane w `daily.parquet` | są w `daily` | cechy rabatu, maska "dzień bez braków towaru", 08.6b |
-| `SeasonalNaiveForecaster` i interfejs `fit(history)` / `predict(horizon)` | zadanie 04.1 | `from freshcast.models.local import SeasonalNaiveForecaster` | 08.2 (baseline), 08.7b |
+| `SeasonalNaiveForecaster` i interfejs `fit(history)`, `predict(horizon)` | zadanie 04.1 | `from freshcast.models.local import SeasonalNaiveForecaster` | 08.2 (baseline), 08.7b |
 | `metrics.wape`, `metrics.mae`, `metrics.bias` z argumentem `mask` | zadania 05.2 i 05.3 | `from freshcast import metrics` | 08.2 (komórka z baseline'em), 08.5 |
 
 Jeśli któregoś z tych zadań nie masz albo nie przechodzi sprawdzenia, `uv run course catchup 08` wpisze kod referencyjny modułów przed 08 do Twojego pakietu. Pierwsza komórka z danymi zbuduje wtedy `daily.parquet`.
@@ -48,7 +54,7 @@ Jeśli któregoś z tych zadań nie masz albo nie przechodzi sprawdzenia, `uv ru
 ## Zanim zaczniesz
 
 - Masz `data/processed/daily.parquet` z labu 07 albo kod z `uv run course catchup 08`.
-- `uv run course check 07` pokazuje zaliczone zadania 07.5 i 07.6 (albo zrobiłeś catchup).
+- `uv run course check 07` pokazuje zaliczone zadania 07.5 i 07.6, albo zrobiłeś catchup.
 - Przeczytałeś wykład 08.
 
 ## Gdy utkniesz

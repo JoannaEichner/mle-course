@@ -64,8 +64,9 @@ def add_rolling_mean(
     Returns:
         A new frame: every column of ``df`` plus the column
         ``{column}_mean_{window}_lag_{lag}`` at the end, same rows, order and
-        index. Rows without ``window`` full past days in their own series are
-        NaN. The input is not modified.
+        index. Rows whose window starts before the first day of their own
+        series are NaN: the first ``lag + window - 1`` rows of each series.
+        The input is not modified.
 
     Raises:
         ValueError: ``window`` or ``lag`` is below 1, or the frame is not

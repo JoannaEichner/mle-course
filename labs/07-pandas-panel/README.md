@@ -39,15 +39,20 @@ Każde zadanie jest podzielone na kroki. Krok to jedna funkcja w pakiecie albo j
 | 07.6c Odczyt z kontrolą kontraktu | `prepare.py`: `load_processed` | `uv run course check 07.6` |
 | 07.7 Eksploracja | notebook: cztery odpowiedzi pisemne | rozmowa z tutorem |
 
-Całość: `uv run course check 07`. Jedno sprawdzenie obejmuje wszystkie funkcje zadania i testuje je w kolejności kroków. ⬜ „jeszcze nie zrobione” znaczy, że doszło do funkcji, która wciąż ma `raise NotImplementedError`. Sprawdzenie 07.6 korzysta z Twoich funkcji z 07.1, 07.2 i 07.4.
+Całość: `uv run course check 07`. Jedno sprawdzenie obejmuje wszystkie funkcje zadania i testuje je w kolejności kroków. Status ⬜ "jeszcze nie zrobione" znaczy, że sprawdzenie doszło do funkcji, która wciąż ma `raise NotImplementedError`. Sprawdzenie 07.6 korzysta z Twoich funkcji z 07.1, 07.2 i 07.4.
 
 ## Co wykorzystasz z poprzednich labów
 
 - **Moduł 02:** funkcja z sygnaturą i docstringiem jako umowa, import z modułu (`from freshcast.data.load import load_sales`).
-- **Moduł 05 (NumPy):** osie (`sum(axis=1)` to jedna liczba na wiersz), wycinki `[:, 6:22]`, maski i `np.where`, `.nbytes`. W 07.4 robisz z kolumny tablic jedną tablicę, podobnie jak `to_matrix` z 05.6a robiła macierz z długiej tabeli. To jednak inna funkcja, z innymi argumentami: w 07.4b piszesz nową.
-- **Moduł 06 (pandas):** typy kolumn, `isna`, `duplicated`, `drop_duplicates`, `assign` i łańcuchy metod, `sort_values` z `reset_index(drop=True)`. Reguła „policz, sprawdź, rzuć `ValueError` z liczbą” z `check_raw` (06.2) i `check_daily` (06.6b). Zapis i odczyt z kontrolą (`save_daily`, `load_daily` z 06.7b) to wzorzec dla 07.6b i 07.6c.
+- **Moduł 05 (NumPy):** osie (`sum(axis=1)` to jedna liczba na wiersz), wycinki `[:, 6:22]`, maski i `np.where`, `.nbytes`. W 07.4 robisz z kolumny tablic jedną tablicę, podobnie jak `to_matrix` z 05.6a robiła macierz z długiej tabeli. To jednak inna funkcja, z innymi argumentami. W 07.4b piszesz nową.
+- **Moduł 06 (pandas):** typy kolumn, `isna`, `duplicated`, `drop_duplicates`, `assign` i łańcuchy metod, `sort_values` z `reset_index(drop=True)`. Reguła "policz, sprawdź, rzuć `ValueError` z liczbą" z `check_raw` (06.2) i `check_daily` (06.6b). Zapis i odczyt z kontrolą (`save_daily`, `load_daily` z 06.7b) to wzorzec dla 07.6b i 07.6c.
 - **Stałe z `src/freshcast/data/schema.py`:** `SERIES_KEY`, `DATE`, `TARGET`, `CITY`, `HIERARCHY`, `DAILY_COLUMNS`, `HOURLY_COLUMNS`, `OOS_WINDOW`, `PROCESSED_COLUMNS` i nazwy nowych kolumn. Importujesz je, zamiast pisać nazwy kolumn w cudzysłowie.
-- **W obrębie labu:** każdy krok korzysta z poprzednich. `daily` z 07.1 jest wejściem 07.2-07.5, `load_sales` wczytuje też `hierarchy` dla 07.3b, `to_matrix` służy `summarise_hours`, `is_sorted_panel` chroni `add_lag` i `add_rolling_mean`, a `prepare_daily` składa `load_sales`, `check_panel`, `clean_discount`, `load_hourly` i `summarise_hours`.
+- **W obrębie labu:** każdy krok korzysta z poprzednich.
+  - `daily` z 07.1 jest wejściem 07.2-07.5.
+  - `load_sales` wczytuje też `hierarchy` dla 07.3b.
+  - `to_matrix` służy `summarise_hours`.
+  - `is_sorted_panel` chroni `add_lag` i `add_rolling_mean`.
+  - `prepare_daily` składa `load_sales`, `check_panel`, `clean_discount`, `load_hourly` i `summarise_hours`.
 
 ## Zanim zaczniesz
 
