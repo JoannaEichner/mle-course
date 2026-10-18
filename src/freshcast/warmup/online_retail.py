@@ -15,6 +15,9 @@ return line):
     units_returned  int64     units on cancellation lines, as a positive number
     revenue         float64   sum of quantity * price over sale lines, in pounds
 
+``check_daily`` accepts any integer and any float width for the measures; the
+table built here has exactly the types above.
+
 The table is sparse: a missing product-day means no line was booked, not that
 demand was zero. 604 of the 739 calendar days from 2009-12-01 to 2011-12-09
 have at least one line. The shop books nothing on Saturdays (one exception,
@@ -79,7 +82,7 @@ DAILY_COLUMNS = [*PRODUCT_KEY, *MEASURE_COLUMNS]
 def read_sheets(path: Path) -> pd.DataFrame:
     """Read every sheet of the workbook into one typed table.
 
-    Reading the workbook is slow (about half a minute for 1,067,371 rows,
+    Reading the workbook is slow (up to about 90 seconds for 1,067,371 rows,
     525,461 in the first sheet and 541,910 in the second) and reading the
     parquet cache written from it takes a few hundredths of a second, so
     this function is meant to run once (see ``build_cache``).
