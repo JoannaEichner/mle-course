@@ -193,6 +193,18 @@ print(stock, len(unique))</code></pre>
           <li>Błąd: krotka nie może być kluczem<span class="why">Może, bo jest niezmienna. Kluczem nie może być lista.</span></li>
         </ul>
       </div>
+
+      <h3 id="sortowanie">Sortowanie po kluczu</h3>
+      <p><code>sorted(kolekcja)</code> zwraca <strong>nową</strong> listę, ułożoną rosnąco. Kolekcja, którą dostał, zostaje bez zmian. Argument <code>key</code> mówi, po czym sortować: to funkcja, którą <code>sorted</code> wywołuje dla każdego elementu. Elementy układa według tego, co ta funkcja zwróci.</p>
+
+<pre><code class="language-python">words = ["chleb", "ser", "masło"]
+print(sorted(words, key=len))                         # ['ser', 'chleb', 'masło']
+
+prices = [("ser", 12.5), ("chleb", 4.0)]
+print(sorted(prices, key=lambda pair: pair[1]))       # [('chleb', 4.0), ('ser', 12.5)]</code></pre>
+
+      <p><code>lambda pair: pair[1]</code> to krótka funkcja bez nazwy: dostaje element <code>pair</code> i zwraca jego drugie pole. Działa tak samo jak <code>def</code> z jedną linią <code>return pair[1]</code>. Więcej o takich funkcjach w module 02.</p>
+      <p>Krotki Python porównuje pole po polu: najpierw pierwsze, a drugie tylko wtedy, gdy pierwsze są równe. Dlatego <code>(1, "b") &lt; (1, "c")</code> daje <code>True</code>. Jeśli <code>key</code> zwraca krotkę, drugie pole rozstrzyga remisy w pierwszym.</p>
     </section>
 
     <section id="comprehensions">
@@ -278,7 +290,20 @@ with path.open(encoding="utf-8") as handle:
         <li>Zawsze podajesz <code>encoding="utf-8"</code>. Domyślne kodowanie zależy od systemu, a polskie znaki i symbole walut rozjeżdżają się pierwsze.</li>
       </ul>
 
-      <p><code>with</code> działa z każdym obiektem, który umie się "otworzyć" i "zamknąć": plikiem, połączeniem z bazą, blokadą. Takie obiekty nazywa się <strong>context managerami</strong>. Własny napiszesz w module 02.</p>
+      <p><code>with</code> działa z każdym obiektem, który umie się "otworzyć" i "zamknąć": plikiem, połączeniem z bazą, blokadą. Takie obiekty nazywa się <strong>context managerami</strong>.</p>
+
+      <h3 id="zapis-json">Zapis do pliku JSON</h3>
+      <p><strong>JSON</strong> to tekstowy format danych, który czyta człowiek i prawie każdy program. Słownik z napisami, liczbami, <code>None</code> i listami zamieniasz na tekst JSON funkcją <code>json.dumps</code> z modułu <code>json</code>. <code>indent=2</code> układa wynik w wiersze z wcięciem, <code>sort_keys=True</code> sortuje klucze słowników.</p>
+
+<pre><code class="language-python">import json
+from pathlib import Path
+
+text = json.dumps({"ser": 2, "chleb": None}, indent=2, sort_keys=True)
+target = Path("out") / "demo" / "stock.json"
+target.parent.mkdir(parents=True, exist_ok=True)    # katalog out/demo, jeśli go nie ma
+target.write_text(text, encoding="utf-8")</code></pre>
+
+      <p><code>target.parent</code> to katalog, w którym ma leżeć plik. <code>mkdir(parents=True, exist_ok=True)</code> tworzy go razem z brakującymi katalogami wyżej i nie zgłasza błędu, gdy już istnieje. <code>write_text</code> otwiera plik, zapisuje tekst i zamyka plik, więc <code>with</code> nie jest tu potrzebne.</p>
     </section>
 
     <section id="wyjatki">

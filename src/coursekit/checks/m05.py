@@ -55,6 +55,10 @@ def check_prepare(_target: object) -> None:
         "bierze udziału w ocenie.",
     )
     _raises(lambda: metrics.prepare([1.0, 2.0], [1.0]), "wejścia mają różną długość")
+    _raises(
+        lambda: metrics.prepare(np.zeros((2, 3)), np.zeros((3, 2))),
+        "wejścia mają kształty (2, 3) i (3, 2)",
+    )
     _raises(lambda: metrics.prepare([1.0, np.nan], [1.0, 2.0]), "w danych jest NaN")
     _raises(
         lambda: metrics.prepare([1.0, 2.0], [1.0, 2.0], [False, False]),
@@ -63,6 +67,12 @@ def check_prepare(_target: object) -> None:
     _raises(
         lambda: metrics.prepare([1.0, 2.0], [1.0, 2.0], [True]),
         "maska ma inną długość niż dane",
+    )
+    _raises(
+        lambda: metrics.prepare(
+            np.zeros((2, 3)), np.zeros((2, 3)), np.ones((3, 2), bool)
+        ),
+        "maska ma kształt (3, 2), a dane (2, 3)",
     )
 
 
@@ -214,6 +224,7 @@ def check_seasonal_naive(seasonal_naive: Callable[..., np.ndarray]) -> None:
         f"Horyzont krótszy niż sezon bierze początek ostatniego sezonu. Dostałem {got.tolist()}.",
     )
     _raises(lambda: seasonal_naive(history, horizon=0, season=3), "horyzont wynosi 0")
+    _raises(lambda: seasonal_naive(history, horizon=2, season=0), "sezon wynosi 0")
     _raises(
         lambda: seasonal_naive(history, horizon=2, season=7),
         "historia jest krótsza niż sezon",

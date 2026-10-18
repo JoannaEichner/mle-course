@@ -163,6 +163,8 @@ print(
         </ul>
       </div>
 
+      <p>Liczba duplikatów zależy więc od tego, co liczysz. Para identycznych wierszy to 1 przy <code>keep="first"</code> (dodatkowe wystąpienia, czyli tyle, ile usunęłoby zostawienie jednego egzemplarza) i 2 przy <code>keep=False</code> (wszystkie egzemplarze, czyli tyle wierszy trzeba obejrzeć). W labie 06 (<code>flag_repeat_lines</code>, 06.4) i w labie 07 (07.2a, <code>n_duplicated</code>) liczysz dodatkowe wystąpienia: pierwsze wystąpienie nie jest oznaczone. Ćwiczenie "Walidator klucza" na końcu tego wykładu liczy wszystkie egzemplarze. Zawsze pisz w komunikacie albo docstringu, którą liczbę podajesz.</p>
+
       <p>Ważniejsze od składni jest pytanie, skąd duplikat się wziął:</p>
       <ul>
         <li><strong>kopia techniczna</strong>: eksport zapisał ten sam fragment dwa razy, na przykład na styku dwóch arkuszy. Taką kopię usuwasz bez wahania, ale najpierw sprawdzasz, że to naprawdę kopia,</li>
@@ -205,6 +207,57 @@ print(len(df.columns), sales["revenue"].sum())</code></pre>
         <span class="label">Pułapka</span>
         <p><code>df[df["price"] == 0]["price"] = 0.01</code> nie zmienia <code>df</code>. Pierwszy nawias tworzy nową ramkę, a przypisanie trafia do niej, nie do <code>df</code>. W pandas 3 takie przypisanie łańcuchowe nigdy nie działa i daje ostrzeżenie. Zmiana w miejscu to <code>df.loc[maska, "price"] = 0.01</code>, a zwykle lepsza jest nowa kolumna przez <code>assign</code> albo <code>where</code>.</p>
       </div>
+    </section>
+
+    <section id="narzedzia">
+      <h2>Narzędzia, których użyjesz w labie</h2>
+
+      <p>Kilka operacji pandas, po które sięgniesz w labie, w jednym miejscu. Każda zwraca nowy obiekt i nie zmienia starego.</p>
+
+      <h3>Kilka arkuszy w jednej tabeli</h3>
+
+      <p><code>pd.read_excel(path, sheet_name=None)</code> czyta wszystkie arkusze i zwraca słownik: nazwa arkusza → ramka. <code>pd.concat(lista_ramek, ignore_index=True)</code> skleja ramki jedna pod drugą. Bez <code>ignore_index=True</code> każda ramka wnosi swoje etykiety 0, 1, 2, ..., więc w wyniku się powtarzają. <code>rename(columns={"stara": "nowa"})</code> zmienia nazwy kolumn według słownika.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+a = pd.DataFrame({"x": [1]})
+b = pd.DataFrame({"x": [2]})
+pd.concat([a, b]).index.tolist()                      # [0, 0]: etykiety się powtarzają
+pd.concat([a, b], ignore_index=True).index.tolist()   # [0, 1]
+pd.Series([" 85123a", "47503J "]).str.strip().str.upper().tolist()   # ['85123A', '47503J']</code></pre>
+
+      <p><code>.str.strip()</code> usuwa odstępy z początku i końca napisu, <code>.str.upper()</code> zamienia litery na wielkie. Razem sprowadzają dwa zapisy tego samego kodu do jednego.</p>
+
+      <h3>Ile różnych wartości w grupie</h3>
+
+      <p><code>groupby(klucz)[kolumna].nunique()</code> liczy różne wartości kolumny w każdej grupie i zwraca jedną liczbę na grupę. <code>transform("nunique")</code> liczy to samo, ale wpisuje wynik do każdego wiersza grupy: wynik ma indeks i długość ramki, więc nadaje się na maskę wierszy. <code>isin(lista)</code> daje maskę wierszy, których wartość jest na liście.</p>
+
+      <div class="predict" id="p8" data-type="single">
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"product": ["P1", "P1", "P2"], "store": ["A", "B", "A"]})
+stores = df.groupby("product")["store"]
+print(stores.nunique().tolist(), stores.transform("nunique").tolist())</code></pre>
+        <ul class="quiz-options">
+          <li><code>[2, 1] [2, 1]</code><span class="why"><code>transform</code> nie zwija grup. Zwraca wartość dla każdego z trzech wierszy.</span></li>
+          <li data-correct><code>[2, 1] [2, 2, 1]</code><span class="why">Tak. <code>nunique</code> daje jedną liczbę na produkt, <code>transform</code> powtarza ją w każdym wierszu produktu. Porównanie <code>> 1</code> da wtedy maskę wierszy produktów z więcej niż jednego sklepu.</span></li>
+          <li><code>[1, 1, 1] [2, 2, 1]</code><span class="why"><code>nunique</code> liczy różne wartości w grupie, a nie w wierszu. P1 ma dwa sklepy.</span></li>
+        </ul>
+      </div>
+
+      <h3>Dzień bez godziny i wybór wartości</h3>
+
+<pre><code class="language-python">times = pd.Series(pd.to_datetime(["2010-12-01 07:45", "2010-12-01 17:10"]))
+times.dt.normalize().tolist()     # obie: Timestamp('2010-12-01 00:00:00')
+
+quantity = pd.Series([3, -2, 5])
+quantity.where(quantity > 0, 0).tolist()   # [3, 0, 5]</code></pre>
+
+      <p><code>.dt.normalize()</code> ustawia godzinę na północ, więc dwie linie z tego samego dnia mają tę samą datę i trafią do jednej grupy. <code>s.where(warunek, inna)</code> zostawia wartość tam, gdzie warunek jest prawdziwy, a gdzie indziej wstawia <code>inna</code>. To samo co <code>np.where(warunek, s, inna)</code> z wykładu 05, tylko z zachowanym indeksem.</p>
+
+      <h3>Zapis i odczyt Parquet</h3>
+
+      <p><code>df.to_parquet(path, index=False)</code> zapisuje ramkę z typami kolumn. <code>index=False</code> pomija indeks: bez tego odczytana ramka ma dodatkową kolumnę albo inny indeks niż zapisana. <code>pd.read_parquet(path)</code> czyta plik z powrotem. Brakujący katalog tworzysz przez <code>path.parent.mkdir(parents=True, exist_ok=True)</code>, jak w wykładzie 01. <code>path.is_file()</code> zwraca <code>True</code>, gdy plik istnieje: tak sprawdzisz, czy cache jest już zbudowany, zanim zgłosisz <code>FileNotFoundError</code>.</p>
     </section>
 
     <section id="walidacja">
@@ -289,7 +342,7 @@ assert len(_df.columns) == 3, "missing_report zmieniło ramkę wejściową."
 
       <h3>Walidator klucza</h3>
 
-      <p>Napisz <code>check_unique_key(df, key)</code>: jeśli któraś kombinacja kolumn z listy <code>key</code> występuje więcej niż raz, zgłoś <code>ValueError</code> z liczbą powtórzonych wierszy (wszystkich egzemplarzy) i przykładem. W przeciwnym razie nic nie zwracaj.</p>
+      <p>Napisz <code>check_unique_key(df, key)</code>: jeśli któraś kombinacja kolumn z listy <code>key</code> występuje więcej niż raz, zgłoś <code>ValueError</code> z liczbą powtórzonych wierszy i przykładem. Tutaj liczysz wszystkie egzemplarze (<code>keep=False</code>): para (A, d1) występująca dwa razy daje 2. W labie 06 i 07 liczba powtórzeń to tylko wystąpienia po pierwszym, więc ta sama para dałaby tam 1. W przeciwnym razie nic nie zwracaj.</p>
 
       <div class="pyrun" id="e2">
         <script type="text/x-python" data-role="starter">

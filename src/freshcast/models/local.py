@@ -27,7 +27,10 @@ class LocalForecaster(ABC):
         """Remember the series to forecast from.
 
         Args:
-            history: Past values, oldest first.
+            history: Past values of one series, oldest first, for example
+                units sold per day. Any sequence of numbers; integers are
+                accepted. The forecaster keeps its own copy as a list of
+                floats, so later changes to the caller's list do not reach it.
 
         Returns:
             The forecaster itself, so calls can be chained.
@@ -44,7 +47,8 @@ class LocalForecaster(ABC):
             horizon: Number of steps ahead, at least 1.
 
         Returns:
-            A list of ``horizon`` floats, nearest step first.
+            A list of exactly ``horizon`` floats, nearest step first, also
+            when the history held integers.
 
         Raises:
             RuntimeError: ``fit`` has not been called.
@@ -58,9 +62,14 @@ class LocalForecaster(ABC):
 
 
 class NaiveForecaster(LocalForecaster):
-    """Repeats the last observed value."""
+    """Repeats the last observed value.
+
+    After ``fit([3.0, 5.0, 4.0])``, ``predict(horizon=2)`` returns
+    ``[4.0, 4.0]``.
+    """
 
     def _forecast(self, history: list[float], horizon: int) -> list[float]:
+        """Return the last value of ``history``, ``horizon`` times."""
         raise NotImplementedError("Zadanie 04.1")
 
 
@@ -83,16 +92,24 @@ class SeasonalNaiveForecaster(LocalForecaster):
         raise NotImplementedError("Zadanie 04.1")
 
     def fit(self, history: Sequence[float]) -> Self:
+        """Like ``LocalForecaster.fit``; the history must cover one season.
+
+        Raises:
+            ValueError: ``history`` has fewer than ``season`` values.
+        """
         raise NotImplementedError("Zadanie 04.1")
 
     def _forecast(self, history: list[float], horizon: int) -> list[float]:
+        """Step ``k`` (from 0) is value ``k % season`` of the last season."""
         raise NotImplementedError("Zadanie 04.1")
 
 
 class MovingAverageForecaster(LocalForecaster):
     """Repeats the mean of the last ``window`` values.
 
-    A history shorter than the window is averaged whole.
+    A history shorter than the window is averaged whole. With ``window=3``
+    and the history ``[100.0, 1.0, 2.0, 3.0]`` every step of the forecast is
+    ``2.0``.
 
     Args:
         window: Number of most recent values to average, at least 1.
@@ -105,4 +122,5 @@ class MovingAverageForecaster(LocalForecaster):
         raise NotImplementedError("Zadanie 04.1")
 
     def _forecast(self, history: list[float], horizon: int) -> list[float]:
+        """Return the mean of the last ``window`` values, ``horizon`` times."""
         raise NotImplementedError("Zadanie 04.1")

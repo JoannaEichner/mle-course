@@ -18,6 +18,7 @@ Review the learner's branch the way a colleague reviews a pull request. The outp
 ## Steps
 
 1. **Gather.** `git status`, `git log --oneline main..HEAD`, `git diff main...HEAD`. Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `uv run pytest` and `uv run course check` for the checkpoint's modules. Done when you hold every output.
+   - Checkpoint 1 is an exception: later modules' stubs and given tests (e.g. `tests/test_metrics.py`) cannot pass yet, and `torch` is not installed. Run exactly the commands from the PK1 section of `labs/04-testing`: ruff on `.` plus `labs/02-functions/carparts.py` and `labs/03-classes/demand.py`, `uv run mypy --strict src/freshcast/models/local.py labs/02-functions/carparts.py labs/03-classes/demand.py`, `uv run pytest tests/models`, `uv run course check 04`. Never ask the learner to implement later tasks to clear G3.
 2. **Read the whole diff against `docs/standard.md`.** Every rule that is in force for the checkpoint's modules, applied to every changed file. Done when each rule is either satisfied or has a finding.
 3. **Report in Polish**, in this order:
    - the verdict: "do scalenia" or "do poprawy",
